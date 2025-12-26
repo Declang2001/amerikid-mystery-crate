@@ -53,6 +53,77 @@ const animationCount = document.querySelector('#animationCount')
 const animationList = document.querySelector('#animationList')
 const errorBanner = document.querySelector('#errorBanner')
 
+const animationInfo = document.querySelector('#animationInfo')
+animationInfo.style.display = 'none'
+errorBanner.style.display = 'none'
+
+resultImage.style.width = '100%'
+resultImage.style.height = 'auto'
+resultImage.style.minHeight = '200px'
+resultImage.style.objectFit = 'contain'
+
+openBtn.style.display = 'none'
+closeBtn.style.display = ''
+
+const controlsContainer = document.querySelector('.controls')
+controlsContainer.style.display = 'grid'
+controlsContainer.style.gridTemplateColumns = '1fr 1fr'
+spinBtn.style.gridColumn = '1'
+spinBtn.style.gridRow = '1'
+closeBtn.style.gridColumn = '2'
+closeBtn.style.gridRow = '1'
+claimBtn.style.gridColumn = '1 / span 2'
+claimBtn.style.gridRow = '2'
+
+const pressXPrompt = document.createElement('div')
+pressXPrompt.innerHTML = `Press <span style="display: inline-block; width: 24px; height: 24px; background: #4a90e2; border-radius: 50%; color: white; text-align: center; line-height: 24px; font-weight: bold; margin: 0 4px;">X</span> for a Random Hat`
+pressXPrompt.style.cssText = `
+  position: fixed;
+  transform: translate(-50%, -50%);
+  font-size: 20px;
+  font-weight: bold;
+  color: white;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 100;
+  display: none;
+  text-transform: uppercase;
+  font-family: Impact, Haettenschweiler, 'Arial Black', sans-serif;
+  letter-spacing: 1px;
+  white-space: nowrap;
+`
+document.body.appendChild(pressXPrompt)
+
+pressXPrompt.addEventListener('click', () => {
+  if (currentState === STATES.READY && playerInRange) {
+    startSpin()
+  }
+})
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'x' || e.key === 'X') {
+    if (currentState === STATES.READY && playerInRange) {
+      startSpin()
+    }
+  }
+})
+
+canvas.addEventListener('click', () => {
+  if (currentState === STATES.READY && playerInRange) {
+    startSpin()
+  }
+})
+
+const spinAudio = new Audio('/audio/sound.mp3')
+spinAudio.preload = 'auto'
+let spinAudioDurationMs = 6000
+spinAudio.addEventListener('loadedmetadata', () => {
+  if (spinAudio.duration && isFinite(spinAudio.duration) && spinAudio.duration > 0) {
+    spinAudioDurationMs = Math.floor(spinAudio.duration * 1000)
+  }
+})
+
 const BACKGROUND_URL = '/room.png'
 const BG_Y_ROT = -0.6
 
@@ -61,7 +132,10 @@ scene.background = new THREE.Color('#0b0c10')
 
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100)
 camera.position.set(0, 4.0, 6.0)
-camera.lookAt(0, 1.1, 0.6)
+const cameraTargetFinal = new THREE.Vector3(0, 1.1, 0.6)
+const cameraTargetStart = new THREE.Vector3(0, 2.5, 0.6)
+const cameraTargetCurrent = cameraTargetStart.clone()
+camera.lookAt(cameraTargetCurrent)
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
 renderer.setPixelRatio(window.devicePixelRatio || 1)
@@ -71,6 +145,14 @@ renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
 const textureLoader = new THREE.TextureLoader()
+
+const hatTextures = []
+for (let i = 1; i <= 5; i++) {
+  const texture = textureLoader.load(`/hats/hat${i}.png`)
+  texture.colorSpace = THREE.SRGBColorSpace
+  hatTextures.push(texture)
+}
+
 textureLoader.load(
   BACKGROUND_URL,
   (texture) => {
@@ -124,11 +206,11 @@ floor.receiveShadow = true
 scene.add(floor)
 
 const hats = [
-  { name: 'Sunset Drip Cap', image: makeHatSvg('#ff7a59', '#2b1b2d') },
-  { name: 'Midnight Runner', image: makeHatSvg('#1c2541', '#f4d35e') },
-  { name: 'Skyline Crown', image: makeHatSvg('#3a86ff', '#22223b') },
-  { name: 'Neon Scout', image: makeHatSvg('#ff006e', '#0b1320') },
-  { name: 'Desert Nomad', image: makeHatSvg('#f6bd60', '#5a3a1a') }
+  { name: 'Sunset Drip Cap', image: '/hats/hat1.png' },
+  { name: 'Midnight Runner', image: '/hats/hat2.png' },
+  { name: 'Skyline Crown', image: '/hats/hat3.png' },
+  { name: 'Neon Scout', image: '/hats/hat4.png' },
+  { name: 'Desert Nomad', image: '/hats/hat5.png' }
 ]
 
 let currentHatIndex = 0
@@ -144,7 +226,25 @@ let usingFallback = false
 let fallbackLidPivot = null
 let fallbackOpenAngle = -Math.PI / 1.7
 let crateIsOpen = false
+let lidQuestionMarks = null
 let currentState = 'READY'
+let playerInRange = false
+let introComplete = false
+let introStartTime = 0
+const introDuration = 1500
+let hatDisplay3D = null
+let hatDisplayGlow = null
+let hatDisplayRoot = null
+let hatDisplayOpacity = 1.0
+let hatDisplayTargetOpacity = 1.0
+let hatDisplayInsideY = 0
+let hatDisplayAboveY = 0
+let hatDisplayTargetY = 0
+let hatDisplayOpenStartTime = 0
+const hatRevealDelaySeconds = 0.4
+let hatDisplayOutline = null
+let hatDisplayScale = 1.0
+let hatDisplayScaleTarget = 1.0
 
 function makeHatSvg(primary, accent) {
   const svg = `
@@ -169,6 +269,21 @@ function showHat(index) {
   const hat = hats[index]
   resultImage.src = hat.image
   resultName.textContent = hat.name
+  const active3DStates = [STATES.OPENING, STATES.SPINNING, STATES.WINNER_SELECTED]
+  if (hatDisplay3D && hatTextures[index] && active3DStates.includes(currentState)) {
+    hatDisplay3D.material.map = hatTextures[index]
+    hatDisplay3D.material.needsUpdate = true
+    hatDisplayScale = 1.12
+    hatDisplayScaleTarget = 1.0
+    if (hatDisplayGlow) {
+      hatDisplayGlow.material.map = hatTextures[index]
+      hatDisplayGlow.material.needsUpdate = true
+    }
+    if (hatDisplayOutline) {
+      hatDisplayOutline.material.map = hatTextures[index]
+      hatDisplayOutline.material.needsUpdate = true
+    }
+  }
 }
 
 const STATES = {
@@ -328,14 +443,19 @@ async function startSpin() {
   await openCrate()
 
   setState(STATES.SPINNING)
+  spinAudio.currentTime = 0
+  spinAudio.volume = 1
+  spinAudio.play().catch(() => {})
   spinIntervalId = setInterval(() => {
     currentHatIndex = (currentHatIndex + 1) % hats.length
     showHat(currentHatIndex)
   }, 160)
 
-  const spinDuration = 2000 + Math.random() * 900
+  const spinDuration = Math.max(1000, spinAudioDurationMs - 150)
   spinTimeoutId = setTimeout(() => {
     clearInterval(spinIntervalId)
+    spinAudio.pause()
+    spinAudio.currentTime = 0
     const winnerIndex = Math.floor(Math.random() * hats.length)
     currentHatIndex = winnerIndex
     showHat(winnerIndex)
@@ -378,6 +498,82 @@ claimBtn.addEventListener('click', () => {
   })
 })
 
+function createHatDisplay3D() {
+  if (hatDisplayRoot) {
+    scene.remove(hatDisplayRoot)
+  }
+  if (!crateRoot) return
+
+  const bbox = new THREE.Box3().setFromObject(crateRoot)
+  const center = new THREE.Vector3()
+  bbox.getCenter(center)
+
+  hatDisplayInsideY = bbox.min.y + 0.3
+  hatDisplayAboveY = bbox.max.y + 0.8
+  hatDisplayTargetY = hatDisplayInsideY
+
+  hatDisplayRoot = new THREE.Group()
+  hatDisplayRoot.position.set(center.x, hatDisplayInsideY, center.z)
+  hatDisplayRoot.visible = false
+
+  const glowPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.2, 1.2),
+    new THREE.MeshBasicMaterial({
+      map: hatTextures[currentHatIndex],
+      color: 0xff33ff,
+      transparent: true,
+      opacity: 0.25,
+      alphaTest: 0.35,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      depthTest: false,
+      toneMapped: false
+    })
+  )
+  glowPlane.name = 'hatGlow'
+  glowPlane.renderOrder = 8
+  glowPlane.scale.setScalar(1.18)
+  hatDisplayGlow = glowPlane
+  hatDisplayRoot.add(glowPlane)
+
+  const outlinePlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.2, 1.2),
+    new THREE.MeshBasicMaterial({
+      map: hatTextures[currentHatIndex],
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.3,
+      alphaTest: 0.35,
+      depthWrite: false,
+      depthTest: false,
+      toneMapped: false
+    })
+  )
+  outlinePlane.name = 'hatOutline'
+  outlinePlane.renderOrder = 9
+  outlinePlane.scale.setScalar(1.06)
+  hatDisplayOutline = outlinePlane
+  hatDisplayRoot.add(outlinePlane)
+
+  const hatPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.2, 1.2),
+    new THREE.MeshBasicMaterial({
+      map: hatTextures[currentHatIndex],
+      transparent: false,
+      alphaTest: 0.35,
+      toneMapped: false,
+      depthWrite: false,
+      depthTest: false
+    })
+  )
+  hatPlane.name = 'hatDisplay'
+  hatPlane.renderOrder = 10
+  hatDisplay3D = hatPlane
+  hatDisplayRoot.add(hatPlane)
+
+  scene.add(hatDisplayRoot)
+}
+
 const loader = new GLTFLoader()
 loader.load(
   '/models/crate.glb',
@@ -400,6 +596,7 @@ loader.load(
     crateIsOpen = false
     setError('')
     setState(STATES.READY)
+    createHatDisplay3D()
   },
   undefined,
   () => {
@@ -409,6 +606,7 @@ loader.load(
     usingFallback = true
     crateIsOpen = false
     setState(STATES.READY)
+    createHatDisplay3D()
   }
 )
 
@@ -1011,6 +1209,7 @@ function createFallbackCrate() {
 
   // 5) Add to lidPivot (opens with lid)
   lidPivot.add(qDecalPlane);
+  lidQuestionMarks = qDecalPlane;
 
   // Optional debug: visualize axes
   if (DEBUG_QMARKS) {
@@ -1128,6 +1327,120 @@ function animate() {
   if (mixer) {
     mixer.update(delta)
   }
+
+  const time = clock.getElapsedTime()
+
+  if (!introComplete) {
+    if (introStartTime === 0) {
+      introStartTime = time
+    }
+    const elapsed = (time - introStartTime) * 1000
+    const t = Math.min(elapsed / introDuration, 1)
+    const eased = easeInOut(t)
+
+    cameraTargetCurrent.lerpVectors(cameraTargetStart, cameraTargetFinal, eased)
+    camera.lookAt(cameraTargetCurrent)
+
+    if (t >= 1) {
+      introComplete = true
+      playerInRange = true
+    }
+  } else {
+    if (currentState === STATES.READY) {
+      const bobY = Math.sin(time * Math.PI * 2 * 1.0) * 0.03
+      const bobX = Math.sin(time * Math.PI * 2 * 0.6) * 0.015
+      const bobbedTarget = cameraTargetFinal.clone()
+      bobbedTarget.y += bobY
+      bobbedTarget.x += bobX
+      camera.lookAt(bobbedTarget)
+    } else {
+      camera.lookAt(cameraTargetFinal)
+    }
+  }
+
+  if (pressXPrompt && crateRoot) {
+    if (currentState === STATES.READY && playerInRange) {
+      const bbox = new THREE.Box3().setFromObject(crateRoot)
+      const center = new THREE.Vector3()
+      bbox.getCenter(center)
+      const height = bbox.max.y - bbox.min.y
+      const anchorY = bbox.min.y + height * 0.62
+      const anchor = new THREE.Vector3(center.x, anchorY, center.z)
+
+      const dirToCam = camera.position.clone().sub(center).normalize()
+      anchor.addScaledVector(dirToCam, 0.35)
+
+      const screenPos = anchor.clone().project(camera)
+      const x = (screenPos.x * 0.5 + 0.5) * window.innerWidth
+      const y = (-screenPos.y * 0.5 + 0.5) * window.innerHeight + 8
+
+      pressXPrompt.style.left = x + 'px'
+      pressXPrompt.style.top = y + 'px'
+      pressXPrompt.style.display = 'block'
+    } else {
+      pressXPrompt.style.display = 'none'
+    }
+  }
+
+  if (hatDisplayRoot && hatDisplay3D && hatDisplayGlow) {
+    const time = clock.getElapsedTime()
+
+    if (currentState === STATES.OPENING) {
+      if (hatDisplayOpenStartTime === 0) {
+        hatDisplayOpenStartTime = time
+      }
+      const delayElapsed = (time - hatDisplayOpenStartTime) >= hatRevealDelaySeconds
+      if (delayElapsed) {
+        hatDisplayRoot.visible = true
+        hatDisplayTargetY = hatDisplayAboveY
+      } else {
+        hatDisplayRoot.visible = false
+        hatDisplayTargetY = hatDisplayInsideY
+      }
+    } else if (currentState === STATES.SPINNING || currentState === STATES.WINNER_SELECTED) {
+      hatDisplayRoot.visible = true
+      hatDisplayTargetY = hatDisplayAboveY
+      hatDisplayOpenStartTime = 0
+    } else {
+      hatDisplayRoot.visible = false
+      hatDisplayTargetY = hatDisplayInsideY
+      hatDisplayOpenStartTime = 0
+    }
+
+    hatDisplayRoot.position.y += (hatDisplayTargetY - hatDisplayRoot.position.y) * 0.1
+
+    if (lidQuestionMarks) {
+      lidQuestionMarks.visible = currentState === STATES.READY
+    }
+
+    hatDisplay3D.lookAt(camera.position)
+    hatDisplayGlow.lookAt(camera.position)
+    if (hatDisplayOutline) {
+      hatDisplayOutline.lookAt(camera.position)
+    }
+
+    hatDisplayScale += (hatDisplayScaleTarget - hatDisplayScale) * 0.25
+    hatDisplay3D.scale.setScalar(hatDisplayScale)
+    if (hatDisplayOutline) {
+      hatDisplayOutline.scale.setScalar(hatDisplayScale * 1.06)
+    }
+
+    if (currentState === STATES.SPINNING) {
+      hatDisplayRoot.rotation.y += delta * 4.0
+      hatDisplayGlow.material.opacity = 0.15
+    } else if (currentState === STATES.WINNER_SELECTED) {
+      const pulse = 0.25 + Math.sin(time * 3.0) * 0.15
+      hatDisplayGlow.material.opacity = pulse
+    } else {
+      hatDisplayGlow.material.opacity = 0.0
+    }
+  }
+
+  if (currentState !== STATES.SPINNING && !spinAudio.paused) {
+    spinAudio.pause()
+    spinAudio.currentTime = 0
+  }
+
   renderer.render(scene, camera)
 }
 
