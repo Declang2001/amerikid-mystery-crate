@@ -53,7 +53,8 @@ const animationCount = document.querySelector('#animationCount')
 const animationList = document.querySelector('#animationList')
 const errorBanner = document.querySelector('#errorBanner')
 
-const BACKGROUND_URL = '/bg.jpg'
+const BACKGROUND_URL = '/room.png'
+const BG_Y_ROT = -0.6
 
 const scene = new THREE.Scene()
 scene.background = new THREE.Color('#0b0c10')
@@ -74,7 +75,18 @@ textureLoader.load(
   BACKGROUND_URL,
   (texture) => {
     texture.colorSpace = THREE.SRGBColorSpace
-    scene.background = texture
+
+    const bgGeo = new THREE.SphereGeometry(60, 64, 32)
+    const bgMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide, toneMapped: false })
+    const bgMesh = new THREE.Mesh(bgGeo, bgMat)
+    bgMesh.rotation.y = BG_Y_ROT
+    scene.add(bgMesh)
+
+    texture.mapping = THREE.EquirectangularReflectionMapping
+    const pmremGenerator = new THREE.PMREMGenerator(renderer)
+    const envMap = pmremGenerator.fromEquirectangular(texture).texture
+    scene.environment = envMap
+    pmremGenerator.dispose()
   },
   undefined,
   () => {
@@ -400,81 +412,221 @@ loader.load(
   }
 )
 
-// Procedural wood texture generator
-function createWoodTexture(width = 512, height = 512) {
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
+// Procedural contact shadow texture (radial gradient)
+function createContactShadowTexture(size = 256) {
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
 
-  // Base wood color (warm brown)
-  ctx.fillStyle = '#6a4426';
-  ctx.fillRect(0, 0, width, height);
+  const centerX = size / 2
+  const centerY = size / 2
+  const radius = size / 2
 
-  // Wood grain lines (vertical with natural variation)
-  for (let i = 0; i < 80; i++) {
-    const x = Math.random() * width;
-    const grainWidth = 1 + Math.random() * 2;
-    const darkness = 0.7 + Math.random() * 0.3;
-    ctx.strokeStyle = `rgba(75, 49, 26, ${darkness})`;
-    ctx.lineWidth = grainWidth;
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    // Add curves for natural look
-    for (let y = 0; y < height; y += 20) {
-      ctx.lineTo(x + (Math.random() - 0.5) * 4, y);
-    }
-    ctx.stroke();
-  }
+  const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius)
+  gradient.addColorStop(0, 'rgba(0, 0, 0, 1)')
+  gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.4)')
+  gradient.addColorStop(1, 'rgba(0, 0, 0, 0)')
 
-  // Add wood knots
-  for (let i = 0; i < 3; i++) {
-    const kx = Math.random() * width;
-    const ky = Math.random() * height;
-    const gradient = ctx.createRadialGradient(kx, ky, 0, kx, ky, 15);
-    gradient.addColorStop(0, 'rgba(30, 20, 10, 0.8)');
-    gradient.addColorStop(1, 'rgba(30, 20, 10, 0)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(kx - 15, ky - 15, 30, 30);
-  }
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, size, size)
 
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
+  const texture = new THREE.CanvasTexture(canvas)
+  return texture
 }
 
-// Procedural roughness/bump map generator
-function createWoodRoughnessMap(width = 512, height = 512) {
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
+// Procedural wood texture + roughness + normal set (improved realism)
+function createWoodTextureSet(width = 512, height = 512) {
+  const repeatX = 3.2
+  const repeatY = 1.8
+  const colorCanvas = document.createElement('canvas')
+  colorCanvas.width = width
+  colorCanvas.height = height
+  const roughCanvas = document.createElement('canvas')
+  roughCanvas.width = width
+  roughCanvas.height = height
+  const normalCanvas = document.createElement('canvas')
+  normalCanvas.width = width
+  normalCanvas.height = height
 
-  // Base medium gray
-  ctx.fillStyle = '#888888';
-  ctx.fillRect(0, 0, width, height);
+  const colorCtx = colorCanvas.getContext('2d')
+  const roughCtx = roughCanvas.getContext('2d')
+  const normalCtx = normalCanvas.getContext('2d')
 
-  // Add variation for wood grain roughness
-  for (let i = 0; i < 100; i++) {
-    const x = Math.random() * width;
-    const grainWidth = 2 + Math.random() * 3;
-    const gray = 100 + Math.random() * 100;
-    ctx.strokeStyle = `rgb(${gray}, ${gray}, ${gray})`;
-    ctx.lineWidth = grainWidth;
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    for (let y = 0; y < height; y += 15) {
-      ctx.lineTo(x + (Math.random() - 0.5) * 5, y);
-    }
-    ctx.stroke();
+  const heightData = new Float32Array(width * height)
+  const noiseSize = 128
+  const noiseGrid = new Float32Array(noiseSize * noiseSize)
+  for (let i = 0; i < noiseGrid.length; i++) {
+    noiseGrid[i] = Math.random()
   }
 
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  return texture;
+  const sampleNoise = (x, y) => {
+    const fx = ((x % noiseSize) + noiseSize) % noiseSize
+    const fy = ((y % noiseSize) + noiseSize) % noiseSize
+    const x0 = Math.floor(fx)
+    const y0 = Math.floor(fy)
+    const x1 = (x0 + 1) % noiseSize
+    const y1 = (y0 + 1) % noiseSize
+    const tx = fx - x0
+    const ty = fy - y0
+    const n00 = noiseGrid[y0 * noiseSize + x0]
+    const n10 = noiseGrid[y0 * noiseSize + x1]
+    const n01 = noiseGrid[y1 * noiseSize + x0]
+    const n11 = noiseGrid[y1 * noiseSize + x1]
+    const nx0 = n00 + (n10 - n00) * tx
+    const nx1 = n01 + (n11 - n01) * tx
+    return nx0 + (nx1 - nx0) * ty
+  }
+
+  // More subtle, varied knots
+  const knots = Array.from({ length: 6 }, () => ({
+    x: Math.random() * width,
+    y: Math.random() * height,
+    radius: 12 + Math.random() * 22,
+    strength: 0.3 + Math.random() * 0.35,
+    swirl: Math.random() * Math.PI * 2
+  }))
+
+  // Generate color variation patches
+  const colorPatches = Array.from({ length: 8 }, () => ({
+    x: Math.random() * width,
+    y: Math.random() * height,
+    radius: 80 + Math.random() * 120,
+    warmth: (Math.random() - 0.5) * 0.15
+  }))
+
+  let drift = Math.random() * Math.PI * 2
+  const driftVariation = Math.random() * 0.03 + 0.01
+  for (let y = 0; y < height; y++) {
+    drift += (Math.random() - 0.5) * driftVariation
+    for (let x = 0; x < width; x++) {
+      // Multi-scale noise for more natural grain
+      const noiseA = sampleNoise(x * 0.05, y * 0.12)
+      const noiseB = sampleNoise(x * 0.18, y * 0.35)
+      const noiseC = sampleNoise(x * 0.6, y * 0.9)
+
+      // More varied grain direction
+      const warp = (noiseA - 0.5) * 8 + (noiseB - 0.5) * 3 + drift
+      const grainWide = Math.sin(x * 0.09 + warp)
+      const grainMedium = Math.sin(x * 0.25 + warp * 0.7 + noiseB * 3)
+      const grainFine = Math.sin(x * 0.55 + noiseC * 4)
+
+      let heightValue = 0.52 + grainWide * 0.18 + grainMedium * 0.12 + grainFine * 0.06 + (noiseA - 0.5) * 0.1
+
+      // Add subtle knots with swirl
+      for (let i = 0; i < knots.length; i++) {
+        const knot = knots[i]
+        const dx = x - knot.x
+        const dy = y - knot.y
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        if (dist < knot.radius * 2.5) {
+          const angle = Math.atan2(dy, dx) + knot.swirl
+          const ring = Math.sin(dist * 0.4 + angle * 0.8) * Math.exp(-dist / (knot.radius * 1.2))
+          heightValue -= ring * 0.14 * knot.strength
+        }
+      }
+
+      heightValue = Math.min(1, Math.max(0, heightValue))
+      heightData[y * width + x] = heightValue
+    }
+  }
+
+  const colorData = colorCtx.createImageData(width, height)
+  const roughData = roughCtx.createImageData(width, height)
+  const normalData = normalCtx.createImageData(width, height)
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const index = y * width + x
+      const h = heightData[index]
+      const noise = sampleNoise(x * 0.5, y * 0.5)
+
+      // Calculate color variation from patches
+      let warmthShift = 0
+      for (let i = 0; i < colorPatches.length; i++) {
+        const patch = colorPatches[i]
+        const dx = x - patch.x
+        const dy = y - patch.y
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        const influence = Math.exp(-dist / patch.radius)
+        warmthShift += patch.warmth * influence
+      }
+
+      // More varied base colors
+      const base = { r: 112, g: 76, b: 46 }
+      const dark = { r: 62, g: 42, b: 24 }
+      const t = Math.min(1, Math.max(0, h * 1.08))
+      let r = dark.r + (base.r - dark.r) * t
+      let g = dark.g + (base.g - dark.g) * t
+      let b = dark.b + (base.b - dark.b) * t
+
+      // Apply warmth variation
+      r += warmthShift * 20
+      g += warmthShift * 12
+      b += warmthShift * 5
+
+      // Subtle tint variation
+      const tint = 0.94 + noise * 0.12
+      r = Math.min(255, Math.max(0, r * tint))
+      g = Math.min(255, Math.max(0, g * tint))
+      b = Math.min(255, Math.max(0, b * tint))
+
+      const cIndex = index * 4
+      colorData.data[cIndex] = r
+      colorData.data[cIndex + 1] = g
+      colorData.data[cIndex + 2] = b
+      colorData.data[cIndex + 3] = 255
+
+      // Improved roughness detail
+      let roughness = 0.58 + (1 - h) * 0.32 + (noise - 0.5) * 0.18
+      roughness = Math.min(1, Math.max(0, roughness))
+      const roughValue = Math.round(roughness * 255)
+      roughData.data[cIndex] = roughValue
+      roughData.data[cIndex + 1] = roughValue
+      roughData.data[cIndex + 2] = roughValue
+      roughData.data[cIndex + 3] = 255
+    }
+  }
+
+  // Stronger normal map for better highlights
+  const normalStrength = 3.2
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const left = heightData[y * width + Math.max(0, x - 1)]
+      const right = heightData[y * width + Math.min(width - 1, x + 1)]
+      const up = heightData[Math.max(0, y - 1) * width + x]
+      const down = heightData[Math.min(height - 1, y + 1) * width + x]
+      const dx = (right - left) * normalStrength
+      const dy = (down - up) * normalStrength
+      const dz = 1.0
+      const len = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1
+      const nx = (-dx / len) * 0.5 + 0.5
+      const ny = (-dy / len) * 0.5 + 0.5
+      const nz = (dz / len) * 0.5 + 0.5
+      const nIndex = (y * width + x) * 4
+      normalData.data[nIndex] = Math.round(nx * 255)
+      normalData.data[nIndex + 1] = Math.round(ny * 255)
+      normalData.data[nIndex + 2] = Math.round(nz * 255)
+      normalData.data[nIndex + 3] = 255
+    }
+  }
+
+  colorCtx.putImageData(colorData, 0, 0)
+  roughCtx.putImageData(roughData, 0, 0)
+  normalCtx.putImageData(normalData, 0, 0)
+
+  const colorMap = new THREE.CanvasTexture(colorCanvas)
+  const roughnessMap = new THREE.CanvasTexture(roughCanvas)
+  const normalMap = new THREE.CanvasTexture(normalCanvas)
+  colorMap.colorSpace = THREE.SRGBColorSpace
+
+  ;[colorMap, roughnessMap, normalMap].forEach((texture) => {
+    texture.wrapS = THREE.RepeatWrapping
+    texture.wrapT = THREE.RepeatWrapping
+    texture.repeat.set(repeatX, repeatY)
+  })
+
+  return { colorMap, roughnessMap, normalMap }
 }
 
 // Procedural crack texture for light leakage (subtle)
@@ -522,19 +674,34 @@ function createFallbackCrate() {
   const group = new THREE.Group()
 
   // Generate procedural textures
-  const woodTexture = createWoodTexture(512, 512)
-  const woodRoughnessMap = createWoodRoughnessMap(512, 512)
+  const woodMaps = createWoodTextureSet(512, 512)
+  const woodTexture = woodMaps.colorMap
+  const woodRoughnessMap = woodMaps.roughnessMap
+  const woodNormalMap = woodMaps.normalMap
 
   const woodMat = new THREE.MeshStandardMaterial({
     map: woodTexture,
     roughnessMap: woodRoughnessMap,
-    roughness: 0.85,
+    normalMap: woodNormalMap,
+    roughness: 0.82,
     metalness: 0.05
   })
   const woodDarkMat = new THREE.MeshStandardMaterial({
     color: 0x4b311a,
+    map: woodTexture,
+    roughnessMap: woodRoughnessMap,
+    normalMap: woodNormalMap,
     roughness: 0.9,
     metalness: 0.04
+  })
+  const woodInnerMat = new THREE.MeshStandardMaterial({
+    color: 0x3a2515,
+    map: woodTexture,
+    roughnessMap: woodRoughnessMap,
+    normalMap: woodNormalMap,
+    roughness: 0.95,
+    metalness: 0.03,
+    side: THREE.DoubleSide
   })
   const metalMat = new THREE.MeshStandardMaterial({
     color: 0x3f3f46,
@@ -547,11 +714,106 @@ function createFallbackCrate() {
     metalness: 0.05
   })
 
-  const base = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.0, 1.4), woodMat)
-  base.position.y = 0.5
-  base.castShadow = true
-  base.receiveShadow = true
-  group.add(base)
+  const baseThickness = 0.08
+  const baseWidth = 2.6
+  const baseHeight = 1.0
+  const baseDepth = 1.4
+  const wallHeight = baseHeight - baseThickness
+
+  const floorPanel = new THREE.Mesh(
+    new THREE.BoxGeometry(baseWidth, baseThickness, baseDepth),
+    woodMat
+  )
+  floorPanel.position.y = baseThickness / 2
+  floorPanel.castShadow = true
+  floorPanel.receiveShadow = true
+  group.add(floorPanel)
+
+  const wallFront = new THREE.Mesh(
+    new THREE.BoxGeometry(baseWidth, wallHeight, baseThickness),
+    woodMat
+  )
+  wallFront.position.set(0, baseThickness + wallHeight / 2, baseDepth / 2 - baseThickness / 2)
+  wallFront.castShadow = true
+  wallFront.receiveShadow = true
+  group.add(wallFront)
+
+  const wallBack = new THREE.Mesh(
+    new THREE.BoxGeometry(baseWidth, wallHeight, baseThickness),
+    woodMat
+  )
+  wallBack.position.set(0, baseThickness + wallHeight / 2, -baseDepth / 2 + baseThickness / 2)
+  wallBack.castShadow = true
+  wallBack.receiveShadow = true
+  group.add(wallBack)
+
+  const wallSideDepth = baseDepth - baseThickness * 2
+  const wallLeft = new THREE.Mesh(
+    new THREE.BoxGeometry(baseThickness, wallHeight, wallSideDepth),
+    woodMat
+  )
+  wallLeft.position.set(-baseWidth / 2 + baseThickness / 2, baseThickness + wallHeight / 2, 0)
+  wallLeft.castShadow = true
+  wallLeft.receiveShadow = true
+  group.add(wallLeft)
+
+  const wallRight = new THREE.Mesh(
+    new THREE.BoxGeometry(baseThickness, wallHeight, wallSideDepth),
+    woodMat
+  )
+  wallRight.position.set(baseWidth / 2 - baseThickness / 2, baseThickness + wallHeight / 2, 0)
+  wallRight.castShadow = true
+  wallRight.receiveShadow = true
+  group.add(wallRight)
+
+  const innerInset = 0.001
+  const innerWidth = baseWidth - baseThickness * 2
+  const innerDepth = baseDepth - baseThickness * 2
+  const innerHeight = wallHeight
+
+  const innerFloor = new THREE.Mesh(
+    new THREE.PlaneGeometry(innerWidth, innerDepth),
+    woodInnerMat
+  )
+  innerFloor.rotation.x = -Math.PI / 2
+  innerFloor.position.set(0, baseThickness + innerInset, 0)
+  innerFloor.receiveShadow = true
+  group.add(innerFloor)
+
+  const innerFront = new THREE.Mesh(
+    new THREE.PlaneGeometry(innerWidth, innerHeight),
+    woodInnerMat
+  )
+  innerFront.position.set(0, baseThickness + innerHeight / 2, baseDepth / 2 - baseThickness - innerInset)
+  innerFront.receiveShadow = true
+  group.add(innerFront)
+
+  const innerBack = new THREE.Mesh(
+    new THREE.PlaneGeometry(innerWidth, innerHeight),
+    woodInnerMat
+  )
+  innerBack.rotation.y = Math.PI
+  innerBack.position.set(0, baseThickness + innerHeight / 2, -baseDepth / 2 + baseThickness + innerInset)
+  innerBack.receiveShadow = true
+  group.add(innerBack)
+
+  const innerLeft = new THREE.Mesh(
+    new THREE.PlaneGeometry(innerDepth, innerHeight),
+    woodInnerMat
+  )
+  innerLeft.rotation.y = Math.PI / 2
+  innerLeft.position.set(-baseWidth / 2 + baseThickness + innerInset, baseThickness + innerHeight / 2, 0)
+  innerLeft.receiveShadow = true
+  group.add(innerLeft)
+
+  const innerRight = new THREE.Mesh(
+    new THREE.PlaneGeometry(innerDepth, innerHeight),
+    woodInnerMat
+  )
+  innerRight.rotation.y = -Math.PI / 2
+  innerRight.position.set(baseWidth / 2 - baseThickness - innerInset, baseThickness + innerHeight / 2, 0)
+  innerRight.receiveShadow = true
+  group.add(innerRight)
 
   const plankFront = new THREE.BoxGeometry(1.8, 0.14, 0.05)
   const plankSide = new THREE.BoxGeometry(0.05, 0.14, 1.2)
@@ -829,6 +1091,26 @@ function createFallbackCrate() {
   const stripSide = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.55, 1.0), neonMatSecondary)
   stripSide.position.set(-0.9, 0.5, 0)
   group.add(stripSide)
+
+  // Contact shadow (subtle radial gradient under crate)
+  const shadowTexture = createContactShadowTexture(256)
+  const shadowMat = new THREE.MeshBasicMaterial({
+    map: shadowTexture,
+    transparent: true,
+    opacity: 0.25,
+    depthWrite: false,
+    depthTest: true,
+    blending: THREE.MultiplyBlending,
+    toneMapped: false
+  })
+  const contactShadow = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.5, 2.0),
+    shadowMat
+  )
+  contactShadow.rotation.x = -Math.PI / 2
+  contactShadow.position.set(0, 0.001, 0)
+  contactShadow.name = 'contactShadow'
+  group.add(contactShadow)
 
   crateRoot = group
   fallbackLidPivot = lidPivot
