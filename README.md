@@ -107,4 +107,5 @@ Potential future enhancements:
 
 ---
 
-**Built as an experimental showcase for AmeriKid** | [Live Demo](#) | [Contact](#)
+**Built as an experimental showcase for AmeriKid** | [Live Demo](https://amerikid-mystery-crate.vercel.app)
+
