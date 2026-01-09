@@ -246,6 +246,13 @@ let crateGlowTarget = 0
 const CRATE_GLOW_MAX = 4.0
 const CRATE_GLOW_RAMP_SPEED = 0.06 // ~300-500ms ramp at 60fps
 
+// Spin timing constants (easy to tune)
+const SPIN_BASE_DURATION_MS = 7000          // baseline feel
+const AUDIO_SILENCE_TAIL_MS = 1800          // trims silent tail from audio end
+const SPIN_END_PADDING_MS = 80              // stop a hair before trimmed audio end
+const MIN_FULL_ROTATIONS = 12               // keep fast early feel
+const EXTRA_FULL_ROTATIONS_MAX = 6          // random extra rotations for variety
+
 // Crack leakage materials (driven by glow intensity)
 let crateCrackMaterials = []
 
@@ -453,21 +460,21 @@ let spinWinnerHatName = null
 
 /**
  * Piecewise easing for wheel-of-fortune effect
- * - Phase 1 (t < 0.65): Fast, nearly linear - covers ~85% of steps
- * - Phase 2 (t >= 0.65): Heavy ease-out slowdown for dramatic finish
+ * - Phase 1 (t < 0.70): Fast, nearly linear - covers ~90% of steps
+ * - Phase 2 (t >= 0.70): Very hard ease-out for dramatic late slowdown
  */
 function spinEasing(t) {
-  const breakpoint = 0.65
-  const stepsCoveredInPhase1 = 0.85
+  const breakpoint = 0.70
+  const stepsCoveredInPhase1 = 0.90
 
   if (t < breakpoint) {
-    // Phase 1: mostly linear, slight acceleration
+    // Phase 1: near-linear with tiny acceleration
     const phase1Progress = t / breakpoint
     return phase1Progress * stepsCoveredInPhase1
   } else {
-    // Phase 2: aggressive ease-out for remaining steps
+    // Phase 2: very aggressive ease-out (power 5) for last ~30% of time
     const phase2Progress = (t - breakpoint) / (1 - breakpoint)
-    const eased = 1 - Math.pow(1 - phase2Progress, 4)
+    const eased = 1 - Math.pow(1 - phase2Progress, 5)
     return stepsCoveredInPhase1 + eased * (1 - stepsCoveredInPhase1)
   }
 }
@@ -493,29 +500,36 @@ async function startSpin() {
 
   // Calculate steps to land exactly on winner from current position
   const offset = (spinWinnerIndex - currentHatIndex + hats.length) % hats.length
-  const baseRotations = 14
-  const rotationJitter = Math.floor(Math.random() * 3) // 0-2 variety
-  const fullRotations = baseRotations + rotationJitter // 14-16 full rotations
+  const fullRotations = MIN_FULL_ROTATIONS + Math.floor(Math.random() * (EXTRA_FULL_ROTATIONS_MAX + 1))
   spinTotalSteps = fullRotations * hats.length + offset
   spinStep = 0
   spinStartTime = performance.now()
 
+  // Compute spin duration that trims audio silent tail
+  let audioMs = SPIN_BASE_DURATION_MS
+  if (Number.isFinite(spinAudio.duration) && spinAudio.duration > 0) {
+    audioMs = spinAudio.duration * 1000
+  }
+  const effectiveAudioMs = Math.max(1000, Math.min(audioMs, audioMs - AUDIO_SILENCE_TAIL_MS))
+  const spinDuration = Math.max(1000, Math.min(SPIN_BASE_DURATION_MS, effectiveAudioMs - SPIN_END_PADDING_MS))
+
+  // Decide audio looping: loop only if spin is longer than effective audio
+  const shouldLoop = spinDuration > effectiveAudioMs
+
   setState(STATES.SPINNING)
   spinAudio.currentTime = 0
   spinAudio.volume = 1
-  spinAudio.loop = true
+  spinAudio.loop = shouldLoop
   spinAudio.play().catch(() => {})
-
-  // Fixed spin duration (decoupled from audio length)
-  const spinDuration = 7000
 
   function animateSpin(now) {
     const elapsed = now - spinStartTime
-    const progress = Math.min(elapsed / spinDuration, 1)
+    const progress = Math.max(0, Math.min(elapsed / spinDuration, 1))
     const easedProgress = spinEasing(progress)
 
     // Calculate which step we should be on based on eased progress
-    const targetStep = Math.floor(easedProgress * spinTotalSteps)
+    // Use (totalSteps + 1) trick so final step can be reached before easedProgress hits exactly 1.0
+    const targetStep = Math.min(spinTotalSteps, Math.floor(easedProgress * (spinTotalSteps + 1)))
 
     // Advance through steps - each step increments currentHatIndex
     while (spinStep < targetStep && spinStep < spinTotalSteps) {
@@ -534,7 +548,7 @@ async function startSpin() {
       // Guard: only flip if somehow not on winner (should not happen)
       if (currentHatIndex !== spinWinnerIndex) {
         currentHatIndex = spinWinnerIndex
-        showHat(spinWinnerIndex)
+        showHat(currentHatIndex)
       }
       setState(STATES.WINNER_SELECTED)
       spinAnimationId = null
