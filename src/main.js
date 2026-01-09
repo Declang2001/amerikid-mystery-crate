@@ -1,6 +1,7 @@
 import './style.css'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import hats, { selectWeightedHat } from './hats.js'
 
 const app = document.querySelector('#app')
 
@@ -147,8 +148,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap
 const textureLoader = new THREE.TextureLoader()
 
 const hatTextures = []
-for (let i = 1; i <= 5; i++) {
-  const texture = textureLoader.load(`/hats/hat${i}.png`)
+for (const hat of hats) {
+  const texture = textureLoader.load(hat.image)
   texture.colorSpace = THREE.SRGBColorSpace
   hatTextures.push(texture)
 }
@@ -205,17 +206,9 @@ floor.position.y = -0.01
 floor.receiveShadow = true
 scene.add(floor)
 
-const hats = [
-  { name: 'Sunset Drip Cap', image: '/hats/hat1.png' },
-  { name: 'Midnight Runner', image: '/hats/hat2.png' },
-  { name: 'Skyline Crown', image: '/hats/hat3.png' },
-  { name: 'Neon Scout', image: '/hats/hat4.png' },
-  { name: 'Desert Nomad', image: '/hats/hat5.png' }
-]
+// Hats imported from hats.js
 
 let currentHatIndex = 0
-let spinIntervalId = null
-let spinTimeoutId = null
 let mixer = null
 let openClip = null
 let closeClip = null
@@ -432,35 +425,89 @@ function findClip(clips, keyword) {
   return clips.find((clip) => clip.name.toLowerCase().includes(keyword)) || null
 }
 
+// Wheel-of-fortune spin state
+let spinAnimationId = null
+let spinStartTime = 0
+let spinWinnerIndex = 0
+let spinTotalCycles = 0
+let spinCurrentCycle = 0
+
+// Winner identity for order/fulfillment (set after each spin)
+let spinWinnerHat = null
+let spinWinnerHatId = null
+let spinWinnerHatName = null
+
+/**
+ * Easing function for wheel-of-fortune effect
+ * Returns a value 0-1 that starts fast and slows dramatically at end
+ */
+function spinEasing(t) {
+  // Deceleration curve: fast start, slow end
+  return 1 - Math.pow(1 - t, 3)
+}
+
 async function startSpin() {
   if ([STATES.OPENING, STATES.SPINNING, STATES.CLAIMING, STATES.CLOSING].includes(currentState)) {
     return
   }
-  clearInterval(spinIntervalId)
-  clearTimeout(spinTimeoutId)
+  // Clear any existing spin
+  if (spinAnimationId) {
+    cancelAnimationFrame(spinAnimationId)
+    spinAnimationId = null
+  }
 
   setState(STATES.OPENING)
   await openCrate()
+
+  // Pre-select winner before spin starts
+  spinWinnerIndex = selectWeightedHat()
+  spinWinnerHat = hats[spinWinnerIndex]
+  spinWinnerHatId = spinWinnerHat.id
+  spinWinnerHatName = spinWinnerHat.name
+
+  // Calculate total cycles: at least 3 full rotations + landing position
+  const minFullRotations = 3
+  const extraCycles = Math.floor(Math.random() * hats.length) // Random extra for variety
+  spinTotalCycles = (minFullRotations * hats.length) + extraCycles + spinWinnerIndex
+  spinCurrentCycle = 0
+  spinStartTime = performance.now()
 
   setState(STATES.SPINNING)
   spinAudio.currentTime = 0
   spinAudio.volume = 1
   spinAudio.play().catch(() => {})
-  spinIntervalId = setInterval(() => {
-    currentHatIndex = (currentHatIndex + 1) % hats.length
-    showHat(currentHatIndex)
-  }, 160)
 
   const spinDuration = Math.max(1000, spinAudioDurationMs - 150)
-  spinTimeoutId = setTimeout(() => {
-    clearInterval(spinIntervalId)
-    spinAudio.pause()
-    spinAudio.currentTime = 0
-    const winnerIndex = Math.floor(Math.random() * hats.length)
-    currentHatIndex = winnerIndex
-    showHat(winnerIndex)
-    setState(STATES.WINNER_SELECTED)
-  }, spinDuration)
+
+  function animateSpin(now) {
+    const elapsed = now - spinStartTime
+    const progress = Math.min(elapsed / spinDuration, 1)
+    const easedProgress = spinEasing(progress)
+
+    // Calculate which cycle we should be on based on eased progress
+    const targetCycle = Math.floor(easedProgress * spinTotalCycles)
+
+    // Advance through cycles if needed
+    while (spinCurrentCycle < targetCycle && spinCurrentCycle < spinTotalCycles) {
+      spinCurrentCycle++
+      currentHatIndex = spinCurrentCycle % hats.length
+      showHat(currentHatIndex)
+    }
+
+    if (progress < 1) {
+      spinAnimationId = requestAnimationFrame(animateSpin)
+    } else {
+      // Ensure we land exactly on the winner
+      spinAudio.pause()
+      spinAudio.currentTime = 0
+      currentHatIndex = spinWinnerIndex
+      showHat(spinWinnerIndex)
+      setState(STATES.WINNER_SELECTED)
+      spinAnimationId = null
+    }
+  }
+
+  spinAnimationId = requestAnimationFrame(animateSpin)
 }
 
 showHat(currentHatIndex)
