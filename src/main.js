@@ -239,6 +239,20 @@ let hatDisplayOutline = null
 let hatDisplayScale = 1.0
 let hatDisplayScaleTarget = 1.0
 
+// Crate internal glow (yellow light, state-driven)
+let crateInternalLight = null
+let crateGlowIntensity = 0
+let crateGlowTarget = 0
+const CRATE_GLOW_MAX = 4.0
+const CRATE_GLOW_RAMP_SPEED = 0.06 // ~300-500ms ramp at 60fps
+
+// Crack leakage materials (driven by glow intensity)
+let crateCrackMaterials = []
+
+// Question mark glow layer
+let questionMarkGlowMesh = null
+let questionMarkGlowMat = null
+
 function makeHatSvg(primary, accent) {
   const svg = `
     <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 120'>
@@ -429,8 +443,8 @@ function findClip(clips, keyword) {
 let spinAnimationId = null
 let spinStartTime = 0
 let spinWinnerIndex = 0
-let spinTotalCycles = 0
-let spinCurrentCycle = 0
+let spinTotalSteps = 0
+let spinStep = 0
 
 // Winner identity for order/fulfillment (set after each spin)
 let spinWinnerHat = null
@@ -438,12 +452,24 @@ let spinWinnerHatId = null
 let spinWinnerHatName = null
 
 /**
- * Easing function for wheel-of-fortune effect
- * Returns a value 0-1 that starts fast and slows dramatically at end
+ * Piecewise easing for wheel-of-fortune effect
+ * - Phase 1 (t < 0.65): Fast, nearly linear - covers ~85% of steps
+ * - Phase 2 (t >= 0.65): Heavy ease-out slowdown for dramatic finish
  */
 function spinEasing(t) {
-  // Deceleration curve: fast start, slow end
-  return 1 - Math.pow(1 - t, 3)
+  const breakpoint = 0.65
+  const stepsCoveredInPhase1 = 0.85
+
+  if (t < breakpoint) {
+    // Phase 1: mostly linear, slight acceleration
+    const phase1Progress = t / breakpoint
+    return phase1Progress * stepsCoveredInPhase1
+  } else {
+    // Phase 2: aggressive ease-out for remaining steps
+    const phase2Progress = (t - breakpoint) / (1 - breakpoint)
+    const eased = 1 - Math.pow(1 - phase2Progress, 4)
+    return stepsCoveredInPhase1 + eased * (1 - stepsCoveredInPhase1)
+  }
 }
 
 async function startSpin() {
@@ -465,43 +491,51 @@ async function startSpin() {
   spinWinnerHatId = spinWinnerHat.id
   spinWinnerHatName = spinWinnerHat.name
 
-  // Calculate total cycles: at least 3 full rotations + landing position
-  const minFullRotations = 3
-  const extraCycles = Math.floor(Math.random() * hats.length) // Random extra for variety
-  spinTotalCycles = (minFullRotations * hats.length) + extraCycles + spinWinnerIndex
-  spinCurrentCycle = 0
+  // Calculate steps to land exactly on winner from current position
+  const offset = (spinWinnerIndex - currentHatIndex + hats.length) % hats.length
+  const baseRotations = 14
+  const rotationJitter = Math.floor(Math.random() * 3) // 0-2 variety
+  const fullRotations = baseRotations + rotationJitter // 14-16 full rotations
+  spinTotalSteps = fullRotations * hats.length + offset
+  spinStep = 0
   spinStartTime = performance.now()
 
   setState(STATES.SPINNING)
   spinAudio.currentTime = 0
   spinAudio.volume = 1
+  spinAudio.loop = true
   spinAudio.play().catch(() => {})
 
-  const spinDuration = Math.max(1000, spinAudioDurationMs - 150)
+  // Fixed spin duration (decoupled from audio length)
+  const spinDuration = 7000
 
   function animateSpin(now) {
     const elapsed = now - spinStartTime
     const progress = Math.min(elapsed / spinDuration, 1)
     const easedProgress = spinEasing(progress)
 
-    // Calculate which cycle we should be on based on eased progress
-    const targetCycle = Math.floor(easedProgress * spinTotalCycles)
+    // Calculate which step we should be on based on eased progress
+    const targetStep = Math.floor(easedProgress * spinTotalSteps)
 
-    // Advance through cycles if needed
-    while (spinCurrentCycle < targetCycle && spinCurrentCycle < spinTotalCycles) {
-      spinCurrentCycle++
-      currentHatIndex = spinCurrentCycle % hats.length
+    // Advance through steps - each step increments currentHatIndex
+    while (spinStep < targetStep && spinStep < spinTotalSteps) {
+      spinStep++
+      currentHatIndex = (currentHatIndex + 1) % hats.length
       showHat(currentHatIndex)
     }
 
     if (progress < 1) {
       spinAnimationId = requestAnimationFrame(animateSpin)
     } else {
-      // Ensure we land exactly on the winner
+      // Spin complete - currentHatIndex should already be on winner
+      spinAudio.loop = false
       spinAudio.pause()
       spinAudio.currentTime = 0
-      currentHatIndex = spinWinnerIndex
-      showHat(spinWinnerIndex)
+      // Guard: only flip if somehow not on winner (should not happen)
+      if (currentHatIndex !== spinWinnerIndex) {
+        currentHatIndex = spinWinnerIndex
+        showHat(spinWinnerIndex)
+      }
       setState(STATES.WINNER_SELECTED)
       spinAnimationId = null
     }
@@ -874,39 +908,163 @@ function createWoodTextureSet(width = 512, height = 512) {
   return { colorMap, roughnessMap, normalMap }
 }
 
-// Procedural crack texture for light leakage (subtle)
+// Procedural crack texture for light leakage (thin jagged streaks)
 function createCrackTexture(width = 256, height = 256) {
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
 
-  ctx.clearRect(0, 0, width, height);
+  ctx.clearRect(0, 0, width, height)
 
-  // Draw subtle glowing cracks
-  ctx.strokeStyle = 'rgba(255, 51, 255, 0.3)';
-  ctx.lineWidth = 0.8;
-  ctx.shadowColor = 'rgba(255, 51, 255, 0.4)';
-  ctx.shadowBlur = 6;
+  // Draw multiple thin jagged crack lines
+  const numCracks = 4 + Math.floor(Math.random() * 3)
 
-  // Sparse crack pattern (fewer, smaller cracks)
-  for (let i = 0; i < 2; i++) {
-    ctx.beginPath();
-    const startX = Math.random() * width;
-    const startY = Math.random() * height;
-    ctx.moveTo(startX, startY);
+  for (let i = 0; i < numCracks; i++) {
+    // Each crack is a thin jagged line
+    ctx.beginPath()
 
-    for (let j = 0; j < 3; j++) {
-      const x = startX + (Math.random() - 0.5) * width * 0.4;
-      const y = startY + (Math.random() - 0.5) * height * 0.4;
-      ctx.lineTo(x, y);
+    // Start from edge or random position
+    let x = Math.random() * width * 0.3
+    let y = Math.random() * height
+    ctx.moveTo(x, y)
+
+    // Create jagged path across
+    const segments = 8 + Math.floor(Math.random() * 6)
+    for (let j = 0; j < segments; j++) {
+      x += width / segments * (0.8 + Math.random() * 0.4)
+      y += (Math.random() - 0.5) * 30
+      ctx.lineTo(x, y)
     }
-    ctx.stroke();
+
+    // Thin bright core
+    ctx.strokeStyle = 'rgba(255, 230, 140, 0.9)'
+    ctx.lineWidth = 1.0 + Math.random() * 0.5
+    ctx.shadowColor = 'rgba(255, 200, 80, 0.8)'
+    ctx.shadowBlur = 8
+    ctx.stroke()
+
+    // Softer glow pass
+    ctx.strokeStyle = 'rgba(255, 200, 80, 0.3)'
+    ctx.lineWidth = 3 + Math.random() * 2
+    ctx.shadowBlur = 15
+    ctx.stroke()
   }
 
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
+  // Add a few vertical crack branches
+  for (let i = 0; i < 2; i++) {
+    ctx.beginPath()
+    const startX = width * (0.3 + Math.random() * 0.4)
+    let y = 0
+    let x = startX
+    ctx.moveTo(x, y)
+
+    while (y < height) {
+      y += 15 + Math.random() * 20
+      x = startX + (Math.random() - 0.5) * 20
+      ctx.lineTo(x, y)
+    }
+
+    ctx.strokeStyle = 'rgba(255, 220, 100, 0.7)'
+    ctx.lineWidth = 0.8
+    ctx.shadowColor = 'rgba(255, 200, 80, 0.6)'
+    ctx.shadowBlur = 6
+    ctx.stroke()
+  }
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+}
+
+// Procedural concrete texture for cinder blocks
+function createConcreteTexture(width = 128, height = 128) {
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+
+  // Base gray
+  ctx.fillStyle = '#4a4a4a'
+  ctx.fillRect(0, 0, width, height)
+
+  // Add noise speckle
+  const imageData = ctx.getImageData(0, 0, width, height)
+  const data = imageData.data
+  for (let i = 0; i < data.length; i += 4) {
+    const noise = (Math.random() - 0.5) * 40
+    data[i] = Math.max(0, Math.min(255, data[i] + noise))
+    data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + noise))
+    data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + noise))
+  }
+  ctx.putImageData(imageData, 0, 0)
+
+  // Add some darker patches
+  for (let i = 0; i < 8; i++) {
+    ctx.fillStyle = `rgba(30, 30, 30, ${0.1 + Math.random() * 0.15})`
+    ctx.beginPath()
+    ctx.arc(
+      Math.random() * width,
+      Math.random() * height,
+      5 + Math.random() * 15,
+      0, Math.PI * 2
+    )
+    ctx.fill()
+  }
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+}
+
+// Hazard stencil texture for crate side
+function createHazardStencilTexture(width = 256, height = 256) {
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+
+  ctx.clearRect(0, 0, width, height)
+
+  // Warning triangle
+  const cx = width / 2
+  const cy = height * 0.45
+  const size = width * 0.35
+
+  ctx.beginPath()
+  ctx.moveTo(cx, cy - size * 0.8)
+  ctx.lineTo(cx + size * 0.7, cy + size * 0.5)
+  ctx.lineTo(cx - size * 0.7, cy + size * 0.5)
+  ctx.closePath()
+
+  ctx.strokeStyle = 'rgba(255, 200, 50, 0.8)'
+  ctx.lineWidth = 4
+  ctx.stroke()
+
+  // Exclamation mark inside
+  ctx.fillStyle = 'rgba(255, 200, 50, 0.8)'
+  ctx.fillRect(cx - 4, cy - size * 0.3, 8, size * 0.4)
+  ctx.beginPath()
+  ctx.arc(cx, cy + size * 0.25, 5, 0, Math.PI * 2)
+  ctx.fill()
+
+  // Stencil lines below
+  ctx.strokeStyle = 'rgba(255, 200, 50, 0.5)'
+  ctx.lineWidth = 2
+  const lineY = height * 0.78
+  ctx.beginPath()
+  ctx.moveTo(width * 0.15, lineY)
+  ctx.lineTo(width * 0.85, lineY)
+  ctx.stroke()
+
+  ctx.beginPath()
+  ctx.moveTo(width * 0.25, lineY + 12)
+  ctx.lineTo(width * 0.75, lineY + 12)
+  ctx.stroke()
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
 }
 
 function createFallbackCrate() {
@@ -1088,58 +1246,117 @@ function createFallbackCrate() {
 
   const lidPivot = new THREE.Group()
   lidPivot.position.set(0, 1.0, -0.7)
-  const lid = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.20, 1.4), woodMat)
-  lid.position.set(0, 0.10, 0.7)
-  lid.castShadow = true
-  lid.receiveShadow = true
-  lidPivot.add(lid)
 
-  const lidPlank = new THREE.BoxGeometry(1.75, 0.06, 0.38)
-  const lidPlankOffsets = [-0.35, 0, 0.35]
-  lidPlankOffsets.forEach((z) => {
-    const plank = new THREE.Mesh(lidPlank, woodDarkMat)
-    plank.position.set(0, 0.23, 0.65 + z)
+  // Build lid from individual planks with gaps for realism
+  const lidPlankCount = 4
+  const lidTotalWidth = 2.6
+  const lidPlankGap = 0.012
+  const lidPlankWidth = (lidTotalWidth - (lidPlankCount - 1) * lidPlankGap) / lidPlankCount
+  const lidPlankHeight = 0.12
+  const lidPlankDepth = 1.4
+
+  for (let i = 0; i < lidPlankCount; i++) {
+    const heightVariation = (Math.random() - 0.5) * 0.015
+    const plankGeo = new THREE.BoxGeometry(lidPlankWidth, lidPlankHeight, lidPlankDepth)
+    const plank = new THREE.Mesh(plankGeo, woodMat)
+    const xPos = -lidTotalWidth / 2 + lidPlankWidth / 2 + i * (lidPlankWidth + lidPlankGap)
+    plank.position.set(xPos, 0.06 + heightVariation, 0.7)
     plank.castShadow = true
     plank.receiveShadow = true
     lidPivot.add(plank)
+  }
+
+  // Cross braces on underside of lid (visible when open)
+  const braceGeo = new THREE.BoxGeometry(2.4, 0.04, 0.12)
+  const brace1 = new THREE.Mesh(braceGeo, woodDarkMat)
+  brace1.position.set(0, -0.02, 0.4)
+  lidPivot.add(brace1)
+  const brace2 = new THREE.Mesh(braceGeo, woodDarkMat)
+  brace2.position.set(0, -0.02, 1.0)
+  lidPivot.add(brace2)
+
+  // Better metal material for hardware
+  const hardwareMat = new THREE.MeshStandardMaterial({
+    color: 0x2a2a2e,
+    roughness: 0.45,
+    metalness: 0.85
   })
 
-  // Metal hardware - hinges on back
-  const hingeGeo = new THREE.BoxGeometry(0.15, 0.08, 0.04)
-  const hinge1 = new THREE.Mesh(hingeGeo, metalMat)
-  hinge1.position.set(-0.7, 1.0, -0.69)
-  hinge1.castShadow = true
-  group.add(hinge1)
-  const hinge2 = new THREE.Mesh(hingeGeo, metalMat)
-  hinge2.position.set(0.7, 1.0, -0.69)
-  hinge2.castShadow = true
-  group.add(hinge2)
+  // Hinge plates on lid (back edge, attach to lidPivot so they move with lid)
+  const hingePlateGeo = new THREE.BoxGeometry(0.22, 0.025, 0.12)
+  const hingePlate1 = new THREE.Mesh(hingePlateGeo, hardwareMat)
+  hingePlate1.position.set(-0.6, 0.125, 0.02)  // On lid surface, near back
+  hingePlate1.castShadow = true
+  lidPivot.add(hingePlate1)
+  const hingePlate2 = new THREE.Mesh(hingePlateGeo, hardwareMat)
+  hingePlate2.position.set(0.6, 0.125, 0.02)
+  hingePlate2.castShadow = true
+  lidPivot.add(hingePlate2)
 
-  // Metal corner brackets
-  const bracketGeo = new THREE.BoxGeometry(0.08, 0.25, 0.08)
+  // Hinge plates on base (back edge)
+  const baseHinge1 = new THREE.Mesh(hingePlateGeo, hardwareMat)
+  baseHinge1.position.set(-0.6, 0.98, -0.68)
+  baseHinge1.castShadow = true
+  group.add(baseHinge1)
+  const baseHinge2 = new THREE.Mesh(hingePlateGeo, hardwareMat)
+  baseHinge2.position.set(0.6, 0.98, -0.68)
+  baseHinge2.castShadow = true
+  group.add(baseHinge2)
+
+  // Hinge barrels (cylindrical pivot points)
+  const barrelGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.08, 8)
+  const barrel1 = new THREE.Mesh(barrelGeo, hardwareMat)
+  barrel1.position.set(-0.6, 1.0, -0.69)
+  barrel1.rotation.x = Math.PI / 2
+  group.add(barrel1)
+  const barrel2 = new THREE.Mesh(barrelGeo, hardwareMat)
+  barrel2.position.set(0.6, 1.0, -0.69)
+  barrel2.rotation.x = Math.PI / 2
+  group.add(barrel2)
+
+  // Front latch - hasp on lid
+  const haspGeo = new THREE.BoxGeometry(0.12, 0.025, 0.18)
+  const hasp = new THREE.Mesh(haspGeo, hardwareMat)
+  hasp.position.set(0, 0.125, 1.35)  // Front of lid
+  hasp.castShadow = true
+  lidPivot.add(hasp)
+  // Hasp loop
+  const loopGeo = new THREE.TorusGeometry(0.035, 0.01, 6, 12, Math.PI)
+  const haspLoop = new THREE.Mesh(loopGeo, hardwareMat)
+  haspLoop.position.set(0, 0.11, 1.42)
+  haspLoop.rotation.x = Math.PI / 2
+  lidPivot.add(haspLoop)
+
+  // Front latch - catch plate on base
+  const catchGeo = new THREE.BoxGeometry(0.15, 0.08, 0.04)
+  const catchPlate = new THREE.Mesh(catchGeo, hardwareMat)
+  catchPlate.position.set(0, 0.92, 0.71)
+  catchPlate.castShadow = true
+  group.add(catchPlate)
+
+  // Metal corner brackets (simplified)
+  const bracketGeo = new THREE.BoxGeometry(0.06, 0.2, 0.06)
   const cornerPositions = [
-    [-1.28, 0.2, 0.69],
-    [1.28, 0.2, 0.69],
-    [-1.28, 0.2, -0.69],
-    [1.28, 0.2, -0.69],
-    [-1.28, 0.8, 0.69],
-    [1.28, 0.8, 0.69]
+    [-1.28, 0.15, 0.69],
+    [1.28, 0.15, 0.69],
+    [-1.28, 0.15, -0.69],
+    [1.28, 0.15, -0.69]
   ]
   cornerPositions.forEach(([x, y, z]) => {
-    const bracket = new THREE.Mesh(bracketGeo, metalMat)
+    const bracket = new THREE.Mesh(bracketGeo, hardwareMat)
     bracket.position.set(x, y, z)
     bracket.castShadow = true
     group.add(bracket)
   })
 
-  // Metal straps wrapping around crate
-  const strapGeo = new THREE.BoxGeometry(2.65, 0.06, 0.08)
-  const strap1 = new THREE.Mesh(strapGeo, metalMat)
+  // Metal straps (thinner)
+  const strapGeo = new THREE.BoxGeometry(2.65, 0.04, 0.06)
+  const strap1 = new THREE.Mesh(strapGeo, hardwareMat)
   strap1.position.set(0, 0.35, 0.71)
   strap1.castShadow = true
   group.add(strap1)
-  const strap2 = new THREE.Mesh(strapGeo, metalMat)
-  strap2.position.set(0, 0.65, 0.71)
+  const strap2 = new THREE.Mesh(strapGeo, hardwareMat)
+  strap2.position.set(0, 0.7, 0.71)
   strap2.castShadow = true
   group.add(strap2)
 
@@ -1191,47 +1408,45 @@ function createFallbackCrate() {
   qCtx.textAlign = 'center';
   qCtx.textBaseline = 'middle';
 
-  // Helper to draw one question mark with glow
-  const drawGlowingQuestionMark = (x, y) => {
-    // Pass 1: Outer glow (large, faint)
-    qCtx.shadowColor = '#ff33ff';
-    qCtx.shadowBlur = 150;
-    qCtx.fillStyle = 'rgba(255, 51, 255, 0.3)';
-    qCtx.fillText('?', x, y);
+  // Helper to draw one question mark (buttery yellow, readable base)
+  const drawQuestionMark = (x, y) => {
+    // Subtle shadow for depth
+    qCtx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+    qCtx.shadowBlur = 10;
+    qCtx.shadowOffsetX = 3;
+    qCtx.shadowOffsetY = 3;
 
-    // Pass 2: Mid glow (medium)
-    qCtx.shadowBlur = 80;
-    qCtx.fillStyle = 'rgba(255, 51, 255, 0.6)';
-    qCtx.fillText('?', x, y);
-
-    // Pass 3: Core with stroke (crisp, bright)
-    qCtx.shadowBlur = 30;
-    qCtx.strokeStyle = '#ffffff';
-    qCtx.lineWidth = 5;
-    qCtx.fillStyle = '#ff33ff';
+    // Dark outline for readability
+    qCtx.strokeStyle = '#1a1000';
+    qCtx.lineWidth = 14;
     qCtx.strokeText('?', x, y);
+
+    // Buttery yellow fill
+    qCtx.shadowBlur = 0;
+    qCtx.shadowOffsetX = 0;
+    qCtx.shadowOffsetY = 0;
+    qCtx.fillStyle = '#ffd34d';
     qCtx.fillText('?', x, y);
   };
 
   // Left question mark (normal orientation)
-  drawGlowingQuestionMark(256, 256);
+  drawQuestionMark(256, 256);
 
   // Right question mark (upside-down)
   qCtx.save();
   qCtx.translate(768, 256);
   qCtx.rotate(Math.PI);
-  drawGlowingQuestionMark(0, 0);
+  drawQuestionMark(0, 0);
   qCtx.restore();
 
   const qTexture = new THREE.CanvasTexture(qCanvas);
   qTexture.colorSpace = THREE.SRGBColorSpace;
 
-  // 2) Create decal material (MeshBasicMaterial for unlit glow)
+  // 2) Create decal material (MeshBasicMaterial, no glow until crate opens)
   const qDecalMat = new THREE.MeshBasicMaterial({
     map: qTexture,
     transparent: true,
     toneMapped: false,
-    blending: THREE.AdditiveBlending,
     depthTest: false,
     depthWrite: false,
     side: THREE.DoubleSide
@@ -1243,11 +1458,11 @@ function createFallbackCrate() {
     qDecalMat
   );
 
-  // 4) Transform to lie flat on lid surface
+  // 4) Transform to lie flat DIRECTLY on wood lid surface
   qDecalPlane.rotation.x = -Math.PI / 2;  // Rotate from vertical to horizontal
   qDecalPlane.position.set(
     0,      // centered horizontally
-    0.275,  // above lid top (0.20) and planks (0.26)
+    0.13,   // just above lid plank top (lid at y=0.06, height=0.12, top at ~0.12)
     0.65    // centered in lid depth
   );
   qDecalPlane.scale.x = 1 / 1.35;  // Compensate for group horizontal stretch
@@ -1258,6 +1473,56 @@ function createFallbackCrate() {
   lidPivot.add(qDecalPlane);
   lidQuestionMarks = qDecalPlane;
 
+  // 6) Create glow layer for question marks (controlled by visibility, not just opacity)
+  const qGlowCanvas = document.createElement('canvas');
+  qGlowCanvas.width = 1024;
+  qGlowCanvas.height = 512;
+  const qGlowCtx = qGlowCanvas.getContext('2d');
+  qGlowCtx.clearRect(0, 0, 1024, 512);
+  qGlowCtx.font = 'bold 420px Impact, Haettenschweiler, "Arial Black", sans-serif';
+  qGlowCtx.textAlign = 'center';
+  qGlowCtx.textBaseline = 'middle';
+
+  // Draw blurred glow question marks
+  const drawGlowQuestionMark = (x, y) => {
+    qGlowCtx.shadowColor = '#ffea7a';
+    qGlowCtx.shadowBlur = 60;
+    qGlowCtx.fillStyle = 'rgba(255, 234, 122, 0.6)';
+    qGlowCtx.fillText('?', x, y);
+    qGlowCtx.fillText('?', x, y); // Double for stronger glow
+  };
+  drawGlowQuestionMark(256, 256);
+  qGlowCtx.save();
+  qGlowCtx.translate(768, 256);
+  qGlowCtx.rotate(Math.PI);
+  drawGlowQuestionMark(0, 0);
+  qGlowCtx.restore();
+
+  const qGlowTexture = new THREE.CanvasTexture(qGlowCanvas);
+  qGlowTexture.colorSpace = THREE.SRGBColorSpace;
+
+  questionMarkGlowMat = new THREE.MeshBasicMaterial({
+    map: qGlowTexture,
+    transparent: true,
+    opacity: 0,
+    toneMapped: false,
+    blending: THREE.AdditiveBlending,
+    depthTest: false,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+
+  questionMarkGlowMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.0, 1.0),
+    questionMarkGlowMat
+  );
+  questionMarkGlowMesh.rotation.x = -Math.PI / 2;
+  questionMarkGlowMesh.position.set(0, 0.14, 0.65);  // Just above base decal
+  questionMarkGlowMesh.scale.x = 1 / 1.35;
+  questionMarkGlowMesh.renderOrder = 998;
+  questionMarkGlowMesh.visible = false;  // Start hidden, controlled in animate loop
+  lidPivot.add(questionMarkGlowMesh);
+
   // Optional debug: visualize axes
   if (DEBUG_QMARKS) {
     const axesHelper = new THREE.AxesHelper(0.7);
@@ -1265,44 +1530,79 @@ function createFallbackCrate() {
   }
   // --- END QUESTION MARKS DECAL ---
 
-  // Inner purple glow - point light inside the crate
-  const purpleLight = new THREE.PointLight(0xff33ff, 0.4, 3)
-  purpleLight.position.set(0, 0.5, 0)
-  group.add(purpleLight)
+  // Hot buttery yellow internal glow - point light inside crate (starts OFF)
+  crateInternalLight = new THREE.PointLight(0xffe27a, 0, 2.2)
+  crateInternalLight.position.set(0, 0.5, 0)
+  group.add(crateInternalLight)
 
-  // Crack planes for subtle light leakage on side faces only
-  const crackTexture = createCrackTexture(256, 256)
-  const crackMat = new THREE.MeshBasicMaterial({
-    map: crackTexture,
-    transparent: true,
-    opacity: 0.25,
-    emissive: 0xff33ff,
-    emissiveIntensity: 0.2,
-    toneMapped: false,
-    blending: THREE.AdditiveBlending,
-    depthTest: true,
-    depthWrite: false,
-    polygonOffset: true,
-    polygonOffsetFactor: -1,
-    polygonOffsetUnits: -1,
-    side: THREE.DoubleSide
-  })
+  // Clear crack materials array for seam leak planes
+  crateCrackMaterials = []
 
-  // Left side crack (avoiding straps at y=0.35 and y=0.65)
-  const crackLeft = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.35), crackMat)
-  crackLeft.position.set(-1.303, 0.50, 0.1)  // Pushed outward slightly
-  crackLeft.rotation.y = -Math.PI / 2
-  group.add(crackLeft)
+  // Create seam leak material (thin bright strips)
+  const createSeamLeakMaterial = () => {
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xffe27a,
+      transparent: true,
+      opacity: 0,
+      toneMapped: false,
+      blending: THREE.AdditiveBlending,
+      depthTest: true,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    })
+    crateCrackMaterials.push(mat)
+    return mat
+  }
 
-  // Right side crack (avoiding straps)
-  const crackRight = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.3), crackMat)
-  crackRight.position.set(1.303, 0.55, -0.2)  // Pushed outward slightly
-  crackRight.rotation.y = Math.PI / 2
-  group.add(crackRight)
+  // Lid seam - thin strips around lid perimeter where it meets base
+  // Front lid seam
+  const seamFront = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.4, 0.025),
+    createSeamLeakMaterial()
+  )
+  seamFront.position.set(0, 0.98, 0.69)
+  group.add(seamFront)
 
-  const latch = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.06), metalMat)
-  latch.position.set(0, 0.6, 0.67)
-  group.add(latch)
+  // Back lid seam
+  const seamBack = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.4, 0.025),
+    createSeamLeakMaterial()
+  )
+  seamBack.position.set(0, 0.98, -0.69)
+  group.add(seamBack)
+
+  // Left lid seam
+  const seamLeft = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.2, 0.025),
+    createSeamLeakMaterial()
+  )
+  seamLeft.position.set(-1.29, 0.98, 0)
+  seamLeft.rotation.y = Math.PI / 2
+  group.add(seamLeft)
+
+  // Right lid seam
+  const seamRight = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.2, 0.025),
+    createSeamLeakMaterial()
+  )
+  seamRight.position.set(1.29, 0.98, 0)
+  seamRight.rotation.y = Math.PI / 2
+  group.add(seamRight)
+
+  // Side plank seams (vertical strips)
+  const seamSide1 = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.02, 0.7),
+    createSeamLeakMaterial()
+  )
+  seamSide1.position.set(0.4, 0.5, 0.705)
+  group.add(seamSide1)
+
+  const seamSide2 = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.02, 0.7),
+    createSeamLeakMaterial()
+  )
+  seamSide2.position.set(-0.4, 0.5, 0.705)
+  group.add(seamSide2)
 
   const handleGeo = new THREE.TorusGeometry(0.14, 0.03, 10, 20, Math.PI)
   const leftHandle = new THREE.Mesh(handleGeo, ropeMat)
@@ -1316,27 +1616,77 @@ function createFallbackCrate() {
 
   group.add(lidPivot)
 
-  const neonMatPrimary = new THREE.MeshStandardMaterial({
-    color: 0xff33ff,
-    emissive: 0xff33ff,
-    emissiveIntensity: 0.7,
-    metalness: 0.4,
-    roughness: 0.25
+  // Hazard stencil decal on front face
+  const hazardTexture = createHazardStencilTexture(256, 256)
+  const hazardMat = new THREE.MeshBasicMaterial({
+    map: hazardTexture,
+    transparent: true,
+    toneMapped: false,
+    depthTest: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1
   })
-  const neonMatSecondary = new THREE.MeshStandardMaterial({
-    color: 0x00f5ff,
-    emissive: 0x00f5ff,
-    emissiveIntensity: 0.7,
-    metalness: 0.4,
-    roughness: 0.25
-  })
-  const stripFront = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.05, 0.08), neonMatPrimary)
-  stripFront.position.set(0, 0.9, 0.62)
-  group.add(stripFront)
+  const hazardDecal = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.6, 0.6),
+    hazardMat
+  )
+  hazardDecal.position.set(0.5, 0.5, 0.706)
+  hazardDecal.scale.x = 1 / 1.35 // Compensate for crate stretch
+  group.add(hazardDecal)
 
-  const stripSide = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.55, 1.0), neonMatSecondary)
-  stripSide.position.set(-0.9, 0.5, 0)
-  group.add(stripSide)
+  // Cinder blocks under crate
+  const concreteTexture = createConcreteTexture(128, 128)
+  const concreteMat = new THREE.MeshStandardMaterial({
+    map: concreteTexture,
+    roughness: 0.95,
+    metalness: 0
+  })
+
+  // Standard cinder block dimensions (scaled down)
+  const blockW = 0.5, blockH = 0.25, blockD = 0.3
+  const cinderBlockGeo = new THREE.BoxGeometry(blockW, blockH, blockD)
+
+  // Create cinder block with holes
+  const createCinderBlock = (x, z, rotY = 0) => {
+    const blockGroup = new THREE.Group()
+
+    // Main block body
+    const block = new THREE.Mesh(cinderBlockGeo, concreteMat)
+    block.castShadow = true
+    block.receiveShadow = true
+    blockGroup.add(block)
+
+    // Cut holes (dark insets on top)
+    const holeMat = new THREE.MeshBasicMaterial({ color: 0x1a1a1a })
+    const holeGeo = new THREE.BoxGeometry(blockW * 0.3, 0.02, blockD * 0.6)
+    const hole1 = new THREE.Mesh(holeGeo, holeMat)
+    hole1.position.set(-blockW * 0.25, blockH / 2, 0)
+    blockGroup.add(hole1)
+    const hole2 = new THREE.Mesh(holeGeo, holeMat)
+    hole2.position.set(blockW * 0.25, blockH / 2, 0)
+    blockGroup.add(hole2)
+
+    blockGroup.position.set(x, blockH / 2, z)
+    blockGroup.rotation.y = rotY
+    return blockGroup
+  }
+
+  // Place 4 cinder blocks under crate corners (slightly irregular)
+  const block1 = createCinderBlock(-0.7, -0.35, 0.05)
+  const block2 = createCinderBlock(0.65, -0.38, -0.08)
+  const block3 = createCinderBlock(-0.68, 0.32, 0.12)
+  const block4 = createCinderBlock(0.72, 0.35, -0.03)
+
+  // Add blocks to scene (not to group, so they don't scale with crate)
+  scene.add(block1)
+  scene.add(block2)
+  scene.add(block3)
+  scene.add(block4)
+
+  // Lift crate to sit on blocks
+  group.position.y = blockH
 
   // Contact shadow (subtle radial gradient under crate)
   const shadowTexture = createContactShadowTexture(256)
@@ -1429,6 +1779,33 @@ function animate() {
     }
   }
 
+  // State-driven internal glow ramp (only SPINNING and WINNER_SELECTED, not OPENING)
+  if (crateInternalLight) {
+    // Set target based on state: glow ON only when crate is fully open
+    if (currentState === STATES.SPINNING || currentState === STATES.WINNER_SELECTED) {
+      crateGlowTarget = CRATE_GLOW_MAX
+    } else {
+      crateGlowTarget = 0
+    }
+    // Smooth ramp toward target
+    crateGlowIntensity += (crateGlowTarget - crateGlowIntensity) * CRATE_GLOW_RAMP_SPEED
+    crateInternalLight.intensity = crateGlowIntensity
+
+    // Drive crack material opacity with flicker
+    const leak = Math.max(0, Math.min(1, crateGlowIntensity / CRATE_GLOW_MAX))
+    const flicker = 0.85 + 0.15 * (Math.sin(time * 13.0) * 0.5 + 0.5)
+    const crackOpacity = (0.05 + 0.35 * leak) * flicker
+
+    for (const mat of crateCrackMaterials) {
+      mat.opacity = crackOpacity
+    }
+
+    // Drive question mark glow opacity
+    if (questionMarkGlowMat) {
+      questionMarkGlowMat.opacity = leak * 0.7 * flicker
+    }
+  }
+
   if (hatDisplayRoot && hatDisplay3D && hatDisplayGlow) {
     const time = clock.getElapsedTime()
 
@@ -1456,8 +1833,17 @@ function animate() {
 
     hatDisplayRoot.position.y += (hatDisplayTargetY - hatDisplayRoot.position.y) * 0.1
 
+    // Question marks visible ONLY when crate is closed (READY state)
+    // Must be hidden during OPENING, SPINNING, WINNER_SELECTED to avoid bleed-through
+    const shouldShowQMarks = currentState === STATES.READY
     if (lidQuestionMarks) {
-      lidQuestionMarks.visible = currentState === STATES.READY
+      lidQuestionMarks.visible = shouldShowQMarks
+    }
+    if (questionMarkGlowMesh) {
+      questionMarkGlowMesh.visible = shouldShowQMarks
+      if (!shouldShowQMarks && questionMarkGlowMat) {
+        questionMarkGlowMat.opacity = 0
+      }
     }
 
     hatDisplay3D.lookAt(camera.position)
@@ -1484,6 +1870,7 @@ function animate() {
   }
 
   if (currentState !== STATES.SPINNING && !spinAudio.paused) {
+    spinAudio.loop = false
     spinAudio.pause()
     spinAudio.currentTime = 0
   }
