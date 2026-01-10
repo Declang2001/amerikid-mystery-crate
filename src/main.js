@@ -125,6 +125,79 @@ spinAudio.addEventListener('loadedmetadata', () => {
   }
 })
 
+// SFX Audio objects (reusable)
+const openSfx = new Audio('/sfx/open.mp3')
+const closeSfx = new Audio('/sfx/close.mp3')
+const claimSfx = new Audio('/sfx/claim.mp3')
+
+// SFX helper: allows rapid retriggering without console spam
+function playSfx(audio, volume = 1) {
+  try {
+    audio.currentTime = 0
+  } catch (_) {
+    // Guard: audio may not be ready yet
+  }
+  audio.volume = volume
+  audio.play().catch(() => {})
+}
+
+// One-time audio unlock on first user gesture (autoplay policy)
+const unlockAudio = () => {
+  const sfxList = [openSfx, closeSfx, claimSfx]
+  sfxList.forEach((sfx) => {
+    sfx.volume = 0
+    sfx.play().then(() => sfx.pause()).catch(() => {})
+  })
+  document.removeEventListener('pointerdown', unlockAudio)
+  document.removeEventListener('click', unlockAudio)
+}
+document.addEventListener('pointerdown', unlockAudio, { once: true })
+document.addEventListener('click', unlockAudio, { once: true })
+
+// Helper: Promise-based delay
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+// Helper: Wait for audio to have duration available
+function ensureAudioReady(audio) {
+  return new Promise(resolve => {
+    if (audio.readyState >= 1 && isFinite(audio.duration) && audio.duration > 0) {
+      resolve()
+      return
+    }
+    const onReady = () => {
+      audio.removeEventListener('loadedmetadata', onReady)
+      audio.removeEventListener('canplaythrough', onReady)
+      resolve()
+    }
+    audio.addEventListener('loadedmetadata', onReady)
+    audio.addEventListener('canplaythrough', onReady)
+  })
+}
+
+// Helper: Play SFX and wait for it to finish
+function playSfxAndWait(audio, volume = 1) {
+  return new Promise(resolve => {
+    try {
+      audio.currentTime = 0
+    } catch (_) {}
+    audio.volume = volume
+    const onEnded = () => {
+      audio.removeEventListener('ended', onEnded)
+      resolve()
+    }
+    audio.addEventListener('ended', onEnded)
+    audio.play().catch(() => {
+      audio.removeEventListener('ended', onEnded)
+      resolve()
+    })
+  })
+}
+
+// Pause after crate opens, before spin starts
+const POST_OPEN_PAUSE_MS = 1000
+
 const BACKGROUND_URL = '/room.png'
 const BG_Y_ROT = -0.6
 
@@ -331,12 +404,12 @@ function setError(message) {
   errorBanner.classList.add('visible')
 }
 
-function playAction(action, { reverse = false } = {}) {
+function playAction(action, { reverse = false, timeScale = 1 } = {}) {
   if (!action) return
   action.reset()
   action.clampWhenFinished = true
   action.setLoop(THREE.LoopOnce, 1)
-  action.timeScale = reverse ? -1 : 1
+  action.timeScale = reverse ? -timeScale : timeScale
   if (reverse) {
     action.time = action.getClip().duration
   }
@@ -345,10 +418,12 @@ function playAction(action, { reverse = false } = {}) {
 
 function playActionWithPromise(action, options = {}) {
   if (!action) return Promise.resolve()
-  const duration = action.getClip().duration * 1000
-  playAction(action, options)
+  const clipDurationMs = action.getClip().duration * 1000
+  const targetDurationMs = options.durationMs || clipDurationMs
+  const calculatedTimeScale = clipDurationMs / targetDurationMs
+  playAction(action, { ...options, timeScale: calculatedTimeScale })
   return new Promise((resolve) => {
-    setTimeout(resolve, duration)
+    setTimeout(resolve, targetDurationMs)
   })
 }
 
@@ -389,14 +464,16 @@ function animateLidTo(targetAngle, duration = 900) {
   })
 }
 
-function openCrate() {
+function openCrate(durationMs) {
   if (crateIsOpen) return Promise.resolve()
   if (usingFallback) {
-    return animateLidTo(fallbackOpenAngle, 800).then(() => {
+    return animateLidTo(fallbackOpenAngle, durationMs || 800).then(() => {
       crateIsOpen = true
     })
   }
-  const actionPromise = openAction ? playActionWithPromise(openAction) : Promise.resolve()
+  const actionPromise = openAction
+    ? playActionWithPromise(openAction, { durationMs })
+    : Promise.resolve()
   return actionPromise.then(() => {
     crateIsOpen = true
   })
@@ -489,8 +566,19 @@ async function startSpin() {
     spinAnimationId = null
   }
 
-  setState(STATES.OPENING)
-  await openCrate()
+  const wasOpen = crateIsOpen
+
+  // If crate is closed: sync open SFX with lid animation, then pause
+  if (!wasOpen) {
+    setState(STATES.OPENING)
+    await ensureAudioReady(openSfx)
+    const openMs = Math.max(300, Math.min(6000, openSfx.duration * 1000))
+    await Promise.all([
+      playSfxAndWait(openSfx, 1),
+      openCrate(openMs)
+    ])
+    await delay(POST_OPEN_PAUSE_MS)
+  }
 
   // Pre-select winner before spin starts
   spinWinnerIndex = selectWeightedHat()
@@ -516,6 +604,7 @@ async function startSpin() {
   // Decide audio looping: loop only if spin is longer than effective audio
   const shouldLoop = spinDuration > effectiveAudioMs
 
+  // Now start spinning: state, audio, and animation all begin together
   setState(STATES.SPINNING)
   spinAudio.currentTime = 0
   spinAudio.volume = 1
@@ -575,6 +664,7 @@ closeBtn.addEventListener('click', () => {
   if ([STATES.OPENING, STATES.SPINNING, STATES.CLAIMING, STATES.CLOSING].includes(currentState)) {
     return
   }
+  playSfx(closeSfx, 1)
   setState(STATES.CLOSING)
   closeCrate().then(() => {
     setState(STATES.READY)
@@ -587,6 +677,7 @@ spinBtn.addEventListener('click', () => {
 
 claimBtn.addEventListener('click', () => {
   if (currentState !== STATES.WINNER_SELECTED) return
+  playSfx(claimSfx, 1)
   setState(STATES.CLAIMING)
   closeCrate().then(() => {
     setState(STATES.CLAIMED)
@@ -1823,26 +1914,13 @@ function animate() {
   if (hatDisplayRoot && hatDisplay3D && hatDisplayGlow) {
     const time = clock.getElapsedTime()
 
-    if (currentState === STATES.OPENING) {
-      if (hatDisplayOpenStartTime === 0) {
-        hatDisplayOpenStartTime = time
-      }
-      const delayElapsed = (time - hatDisplayOpenStartTime) >= hatRevealDelaySeconds
-      if (delayElapsed) {
-        hatDisplayRoot.visible = true
-        hatDisplayTargetY = hatDisplayAboveY
-      } else {
-        hatDisplayRoot.visible = false
-        hatDisplayTargetY = hatDisplayInsideY
-      }
-    } else if (currentState === STATES.SPINNING || currentState === STATES.WINNER_SELECTED) {
+    // Hats only visible during SPINNING and WINNER_SELECTED (not during OPENING)
+    if (currentState === STATES.SPINNING || currentState === STATES.WINNER_SELECTED) {
       hatDisplayRoot.visible = true
       hatDisplayTargetY = hatDisplayAboveY
-      hatDisplayOpenStartTime = 0
     } else {
       hatDisplayRoot.visible = false
       hatDisplayTargetY = hatDisplayInsideY
-      hatDisplayOpenStartTime = 0
     }
 
     hatDisplayRoot.position.y += (hatDisplayTargetY - hatDisplayRoot.position.y) * 0.1
