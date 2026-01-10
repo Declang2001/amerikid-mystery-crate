@@ -159,39 +159,59 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-// Helper: Wait for audio to have duration available
+// Helper: Wait for audio to have duration available (with timeout + error resilience)
+const AUDIO_READY_TIMEOUT_MS = 1500
 function ensureAudioReady(audio) {
   return new Promise(resolve => {
+    // Already ready
     if (audio.readyState >= 1 && isFinite(audio.duration) && audio.duration > 0) {
       resolve()
       return
     }
-    const onReady = () => {
+    let resolved = false
+    const cleanup = () => {
+      if (resolved) return
+      resolved = true
       audio.removeEventListener('loadedmetadata', onReady)
       audio.removeEventListener('canplaythrough', onReady)
+      audio.removeEventListener('error', onError)
+      clearTimeout(timeoutId)
       resolve()
     }
+    const onReady = () => cleanup()
+    const onError = () => cleanup()
     audio.addEventListener('loadedmetadata', onReady)
     audio.addEventListener('canplaythrough', onReady)
+    audio.addEventListener('error', onError)
+    // Timeout fallback so spin never hangs
+    const timeoutId = setTimeout(cleanup, AUDIO_READY_TIMEOUT_MS)
   })
 }
 
-// Helper: Play SFX and wait for it to finish
+// Helper: Play SFX and wait for it to finish (with timeout fallback)
+const SFX_PLAY_TIMEOUT_MS = 8000
 function playSfxAndWait(audio, volume = 1) {
   return new Promise(resolve => {
+    let resolved = false
+    const cleanup = () => {
+      if (resolved) return
+      resolved = true
+      audio.removeEventListener('ended', onEnded)
+      audio.removeEventListener('error', onError)
+      clearTimeout(timeoutId)
+      resolve()
+    }
+    const onEnded = () => cleanup()
+    const onError = () => cleanup()
     try {
       audio.currentTime = 0
     } catch (_) {}
     audio.volume = volume
-    const onEnded = () => {
-      audio.removeEventListener('ended', onEnded)
-      resolve()
-    }
     audio.addEventListener('ended', onEnded)
-    audio.play().catch(() => {
-      audio.removeEventListener('ended', onEnded)
-      resolve()
-    })
+    audio.addEventListener('error', onError)
+    // Timeout fallback so spin never hangs even if audio broken
+    const timeoutId = setTimeout(cleanup, SFX_PLAY_TIMEOUT_MS)
+    audio.play().catch(() => cleanup())
   })
 }
 
@@ -572,7 +592,10 @@ async function startSpin() {
   if (!wasOpen) {
     setState(STATES.OPENING)
     await ensureAudioReady(openSfx)
-    const openMs = Math.max(300, Math.min(6000, openSfx.duration * 1000))
+    // Fallback to 800ms if audio failed to load or duration unavailable
+    const openMs = isFinite(openSfx.duration) && openSfx.duration > 0
+      ? Math.max(300, Math.min(6000, openSfx.duration * 1000))
+      : 800
     await Promise.all([
       playSfxAndWait(openSfx, 1),
       openCrate(openMs)
