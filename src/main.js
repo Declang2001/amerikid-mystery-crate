@@ -218,6 +218,10 @@ function playSfxAndWait(audio, volume = 1) {
 // Pause after crate opens, before spin starts
 const POST_OPEN_PAUSE_MS = 1000
 
+// Auto-close chest after winner is shown (Part B)
+const AUTO_CLOSE_AFTER_WINNER_MS = 2500
+let autoCloseTimerId = null
+
 const BACKGROUND_URL = '/room.png'
 const BG_Y_ROT = -0.6
 
@@ -398,6 +402,7 @@ const STATES = {
   OPENING: 'OPENING',
   SPINNING: 'SPINNING',
   WINNER_SELECTED: 'WINNER SELECTED',
+  WINNER_PENDING_CLAIM: 'WINNER PENDING CLAIM',
   CLAIMING: 'CLAIMING',
   CLOSING: 'CLOSING',
   CLAIMED: 'CLAIMED'
@@ -412,6 +417,44 @@ function setState(state) {
   currentState = state
   resultStatus.textContent = formatStatus(state)
   updateControls()
+}
+
+// Helper: explicitly control question marks visibility (Part A)
+function setQuestionMarksVisible(visible) {
+  if (lidQuestionMarks) {
+    lidQuestionMarks.visible = visible
+  }
+  if (questionMarkGlowMesh) {
+    questionMarkGlowMesh.visible = visible
+    if (!visible && questionMarkGlowMat) {
+      questionMarkGlowMat.opacity = 0
+    }
+  }
+}
+
+// Helper: cancel any pending auto-close timer
+function cancelAutoClose() {
+  if (autoCloseTimerId) {
+    clearTimeout(autoCloseTimerId)
+    autoCloseTimerId = null
+  }
+}
+
+// Helper: schedule auto-close after winner is shown (Part B)
+function scheduleAutoClose() {
+  cancelAutoClose()
+  autoCloseTimerId = setTimeout(() => {
+    autoCloseTimerId = null
+    // Only auto-close if still in WINNER_SELECTED state
+    if (currentState !== STATES.WINNER_SELECTED) return
+    playSfx(closeSfx, 1)
+    setState(STATES.CLOSING)
+    closeCrate().then(() => {
+      // Transition to WINNER_PENDING_CLAIM so hat stays visible, claim remains enabled
+      setState(STATES.WINNER_PENDING_CLAIM)
+      setQuestionMarksVisible(true)
+    })
+  }, AUTO_CLOSE_AFTER_WINNER_MS)
 }
 
 function setError(message) {
@@ -456,8 +499,9 @@ function updateControls() {
   ].includes(currentState)
   openBtn.disabled = isLocked || crateIsOpen
   closeBtn.disabled = isLocked || !crateIsOpen
-  spinBtn.disabled = isLocked
-  claimBtn.disabled = currentState !== STATES.WINNER_SELECTED
+  spinBtn.disabled = isLocked || currentState === STATES.WINNER_PENDING_CLAIM
+  // Claim enabled for both WINNER_SELECTED and WINNER_PENDING_CLAIM
+  claimBtn.disabled = currentState !== STATES.WINNER_SELECTED && currentState !== STATES.WINNER_PENDING_CLAIM
 }
 
 function easeInOut(t) {
@@ -577,31 +621,35 @@ function spinEasing(t) {
 }
 
 async function startSpin() {
-  if ([STATES.OPENING, STATES.SPINNING, STATES.CLAIMING, STATES.CLOSING].includes(currentState)) {
+  // Block spinning during active states or when winner is pending claim
+  if ([STATES.OPENING, STATES.SPINNING, STATES.CLAIMING, STATES.CLOSING, STATES.WINNER_PENDING_CLAIM].includes(currentState)) {
     return
   }
+  // Cancel any pending auto-close
+  cancelAutoClose()
   // Clear any existing spin
   if (spinAnimationId) {
     cancelAnimationFrame(spinAnimationId)
     spinAnimationId = null
   }
 
-  const wasOpen = crateIsOpen
-
-  // If crate is closed: sync open SFX with lid animation, then pause
-  if (!wasOpen) {
-    setState(STATES.OPENING)
-    await ensureAudioReady(openSfx)
-    // Fallback to 800ms if audio failed to load or duration unavailable
-    const openMs = isFinite(openSfx.duration) && openSfx.duration > 0
-      ? Math.max(300, Math.min(6000, openSfx.duration * 1000))
-      : 800
-    await Promise.all([
-      playSfxAndWait(openSfx, 1),
-      openCrate(openMs)
-    ])
-    await delay(POST_OPEN_PAUSE_MS)
+  // Part C: Always run the full open sequence - close first if already open
+  if (crateIsOpen) {
+    await closeCrate()
   }
+
+  // Now run the open sequence: sync open SFX with lid animation, then pause
+  setState(STATES.OPENING)
+  await ensureAudioReady(openSfx)
+  // Fallback to 800ms if audio failed to load or duration unavailable
+  const openMs = isFinite(openSfx.duration) && openSfx.duration > 0
+    ? Math.max(300, Math.min(6000, openSfx.duration * 1000))
+    : 800
+  await Promise.all([
+    playSfxAndWait(openSfx, 1),
+    openCrate(openMs)
+  ])
+  await delay(POST_OPEN_PAUSE_MS)
 
   // Pre-select winner before spin starts
   spinWinnerIndex = selectWeightedHat()
@@ -663,6 +711,7 @@ async function startSpin() {
         showHat(currentHatIndex)
       }
       setState(STATES.WINNER_SELECTED)
+      scheduleAutoClose()
       spinAnimationId = null
     }
   }
@@ -687,10 +736,12 @@ closeBtn.addEventListener('click', () => {
   if ([STATES.OPENING, STATES.SPINNING, STATES.CLAIMING, STATES.CLOSING].includes(currentState)) {
     return
   }
+  cancelAutoClose()
   playSfx(closeSfx, 1)
   setState(STATES.CLOSING)
   closeCrate().then(() => {
     setState(STATES.READY)
+    setQuestionMarksVisible(true)
   })
 })
 
@@ -699,11 +750,15 @@ spinBtn.addEventListener('click', () => {
 })
 
 claimBtn.addEventListener('click', () => {
-  if (currentState !== STATES.WINNER_SELECTED) return
+  // Allow claim from both WINNER_SELECTED and WINNER_PENDING_CLAIM
+  if (currentState !== STATES.WINNER_SELECTED && currentState !== STATES.WINNER_PENDING_CLAIM) return
+  cancelAutoClose()
   playSfx(claimSfx, 1)
   setState(STATES.CLAIMING)
+  // closeCrate will no-op if already closed (WINNER_PENDING_CLAIM case)
   closeCrate().then(() => {
     setState(STATES.CLAIMED)
+    setQuestionMarksVisible(true)
   })
 })
 
@@ -1937,8 +1992,8 @@ function animate() {
   if (hatDisplayRoot && hatDisplay3D && hatDisplayGlow) {
     const time = clock.getElapsedTime()
 
-    // Hats only visible during SPINNING and WINNER_SELECTED (not during OPENING)
-    if (currentState === STATES.SPINNING || currentState === STATES.WINNER_SELECTED) {
+    // Hats visible during SPINNING, WINNER_SELECTED, and WINNER_PENDING_CLAIM
+    if (currentState === STATES.SPINNING || currentState === STATES.WINNER_SELECTED || currentState === STATES.WINNER_PENDING_CLAIM) {
       hatDisplayRoot.visible = true
       hatDisplayTargetY = hatDisplayAboveY
     } else {
@@ -1948,18 +2003,10 @@ function animate() {
 
     hatDisplayRoot.position.y += (hatDisplayTargetY - hatDisplayRoot.position.y) * 0.1
 
-    // Question marks visible ONLY when crate is closed (READY state)
-    // Must be hidden during OPENING, SPINNING, WINNER_SELECTED to avoid bleed-through
-    const shouldShowQMarks = currentState === STATES.READY
-    if (lidQuestionMarks) {
-      lidQuestionMarks.visible = shouldShowQMarks
-    }
-    if (questionMarkGlowMesh) {
-      questionMarkGlowMesh.visible = shouldShowQMarks
-      if (!shouldShowQMarks && questionMarkGlowMat) {
-        questionMarkGlowMat.opacity = 0
-      }
-    }
+    // Question marks visible when crate is closed (READY, CLAIMED, or WINNER_PENDING_CLAIM)
+    // Hidden during OPENING, SPINNING, WINNER_SELECTED to avoid bleed-through
+    const shouldShowQMarks = currentState === STATES.READY || currentState === STATES.CLAIMED || currentState === STATES.WINNER_PENDING_CLAIM
+    setQuestionMarksVisible(shouldShowQMarks)
 
     hatDisplay3D.lookAt(camera.position)
     hatDisplayGlow.lookAt(camera.position)
@@ -1976,7 +2023,7 @@ function animate() {
     if (currentState === STATES.SPINNING) {
       hatDisplayRoot.rotation.y += delta * 4.0
       hatDisplayGlow.material.opacity = 0.15
-    } else if (currentState === STATES.WINNER_SELECTED) {
+    } else if (currentState === STATES.WINNER_SELECTED || currentState === STATES.WINNER_PENDING_CLAIM) {
       const pulse = 0.25 + Math.sin(time * 3.0) * 0.15
       hatDisplayGlow.material.opacity = pulse
     } else {
