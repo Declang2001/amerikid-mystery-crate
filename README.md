@@ -74,16 +74,113 @@ npm run preview
 
 ```
 /
+├── api/
+│   ├── _lib/
+│   │   └── shopify.js   # Shopify Admin API helper
+│   ├── eligibility.js   # GET - Check customer spin eligibility
+│   ├── consume-spin.js  # POST - Consume spin entitlement
+│   └── claim-spin.js    # POST - Claim prize after spin
 ├── src/
 │   ├── main.js          # Core application logic
+│   ├── hats.js          # Hat data and weighted selection
 │   └── style.css        # Styling and CSS variables
 ├── public/
 │   ├── hats/            # Hat PNG assets (5 variants)
 │   ├── audio/           # Mystery jingle sound file
+│   ├── sfx/             # Sound effects (open, close, claim)
 │   ├── models/          # Optional GLTF crate model
 │   └── room.png         # Environment background texture
 ├── index.html           # Entry point
 └── package.json         # Dependencies and scripts
+```
+
+## Eligibility System
+
+The mystery crate uses tag-based eligibility via Shopify customer tags.
+
+### Environment Variables (Vercel)
+
+Set these in your Vercel project settings:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `SHOPIFY_SHOP_DOMAIN` | Your Shopify store domain | `your-store.myshopify.com` |
+| `SHOPIFY_ADMIN_ACCESS_TOKEN` | Admin API access token | `shpat_xxxxx` |
+| `SHOPIFY_API_VERSION` | API version (optional) | `2024-10` |
+
+### Customer Tags
+
+| Tag | Meaning |
+|-----|---------|
+| `spin_ready` | Customer has purchased a spin and is eligible |
+| `spin_in_progress` | Customer has spun but not yet claimed |
+
+### Flow
+
+1. Customer purchases spin → `spin_ready` tag added (via Shopify Flow/app)
+2. Customer opens crate → `/api/consume-spin` removes `spin_ready`, adds `spin_in_progress`
+3. Customer claims prize → `/api/claim-spin` removes `spin_in_progress`
+
+### URL Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `customer_id` | Shopify customer ID (passed from store) |
+| `demo` | Set to `1` to force demo mode |
+
+### Test URLs
+
+```bash
+# Demo mode (no customer, spins allowed, claim blocked)
+http://localhost:5173/
+
+# Force demo mode even with customer_id
+http://localhost:5173/?demo=1
+
+# Real mode (requires valid customer with spin_ready tag)
+http://localhost:5173/?customer_id=123456789
+
+# Shopify iframe embed example
+https://your-store.myshopify.com/pages/mystery-crate?customer_id={{ customer.id }}
+```
+
+### API Endpoints
+
+#### `GET /api/eligibility?customer_id=123`
+
+Returns eligibility status:
+
+```json
+{
+  "logged_in": true,
+  "ready": true,
+  "in_progress": false,
+  "tags": ["spin_ready", "other_tag"]
+}
+```
+
+#### `POST /api/consume-spin`
+
+Body: `{ "customer_id": "123" }`
+
+Consumes spin entitlement (removes `spin_ready`, adds `spin_in_progress`).
+
+```json
+{ "ok": true }
+// or
+{ "ok": false, "reason": "No spin_ready tag present" }
+```
+
+#### `POST /api/claim-spin`
+
+Body: `{ "customer_id": "123" }`
+
+Claims prize (removes `spin_in_progress`).
+
+```json
+{ "ok": true }
+// or
+{ "ok": false, "reason": "No spin_in_progress tag present" }
 ```
 
 ## Notes

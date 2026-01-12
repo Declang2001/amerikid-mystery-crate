@@ -3,6 +3,29 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import hats, { selectWeightedHat } from './hats.js'
 
+// --- Eligibility State ---
+const urlParams = new URLSearchParams(window.location.search)
+const customerId = urlParams.get('customer_id') || ''
+const demoOverride = urlParams.get('demo') === '1'
+
+// Demo mode: no customer_id OR demo=1 override
+const isDemoMode = !customerId || demoOverride
+
+// Eligibility state (updated on load for real mode)
+const eligibility = {
+  loggedIn: false,
+  ready: false,
+  inProgress: false,
+  checked: false,
+  loading: false,
+  error: null
+}
+
+// Track if current spin is a real (entitled) spin
+let isRealSpin = false
+// Prevent double-submit on claim
+let claimInProgress = false
+
 const app = document.querySelector('#app')
 
 app.innerHTML = `
@@ -14,6 +37,7 @@ app.innerHTML = `
           <p class="eyebrow">AmeriKid Mystery Crate</p>
           <h1>Unbox the drop</h1>
           <p class="subtitle">Spin the crate and land on a random hat.</p>
+          <p id="eligibilityStatus" class="eligibility-status"></p>
         </div>
         <div class="controls">
           <button id="openBtn" type="button">Open</button>
@@ -57,6 +81,140 @@ const errorBanner = document.querySelector('#errorBanner')
 const animationInfo = document.querySelector('#animationInfo')
 animationInfo.style.display = 'none'
 errorBanner.style.display = 'none'
+
+const eligibilityStatus = document.querySelector('#eligibilityStatus')
+eligibilityStatus.style.cssText = `
+  font-size: 12px;
+  margin-top: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  text-align: center;
+`
+
+// --- Eligibility API Helpers ---
+async function fetchEligibility() {
+  if (isDemoMode) return
+  eligibility.loading = true
+  updateEligibilityUI()
+  try {
+    const res = await fetch(`/api/eligibility?customer_id=${encodeURIComponent(customerId)}`)
+    if (!res.ok) throw new Error('API error')
+    const data = await res.json()
+    eligibility.loggedIn = data.logged_in
+    eligibility.ready = data.ready
+    eligibility.inProgress = data.in_progress
+    eligibility.checked = true
+    eligibility.error = null
+  } catch (err) {
+    eligibility.error = 'Failed to check eligibility'
+    console.error('Eligibility fetch failed:', err)
+  } finally {
+    eligibility.loading = false
+    updateEligibilityUI()
+  }
+}
+
+async function consumeSpinEntitlement() {
+  try {
+    const res = await fetch('/api/consume-spin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customer_id: customerId })
+    })
+    const data = await res.json()
+    if (data.ok) {
+      eligibility.ready = false
+      eligibility.inProgress = true
+      updateEligibilityUI()
+      return true
+    } else {
+      console.error('Consume spin failed:', data.reason)
+      return false
+    }
+  } catch (err) {
+    console.error('Consume spin error:', err)
+    return false
+  }
+}
+
+async function claimSpinEntitlement() {
+  try {
+    const res = await fetch('/api/claim-spin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customer_id: customerId })
+    })
+    const data = await res.json()
+    if (data.ok) {
+      eligibility.inProgress = false
+      updateEligibilityUI()
+      return true
+    } else {
+      console.error('Claim spin failed:', data.reason)
+      return false
+    }
+  } catch (err) {
+    console.error('Claim spin error:', err)
+    return false
+  }
+}
+
+function updateEligibilityUI() {
+  if (!eligibilityStatus) return
+
+  if (isDemoMode) {
+    eligibilityStatus.textContent = 'Demo Mode'
+    eligibilityStatus.style.background = 'rgba(100, 100, 255, 0.2)'
+    eligibilityStatus.style.color = '#aaf'
+    return
+  }
+
+  if (eligibility.loading) {
+    eligibilityStatus.textContent = 'Checking eligibility...'
+    eligibilityStatus.style.background = 'rgba(255, 255, 100, 0.2)'
+    eligibilityStatus.style.color = '#ffa'
+    return
+  }
+
+  if (eligibility.error) {
+    eligibilityStatus.textContent = eligibility.error
+    eligibilityStatus.style.background = 'rgba(255, 100, 100, 0.2)'
+    eligibilityStatus.style.color = '#faa'
+    return
+  }
+
+  if (!eligibility.loggedIn) {
+    eligibilityStatus.textContent = 'Log in to claim prizes'
+    eligibilityStatus.style.background = 'rgba(255, 255, 100, 0.2)'
+    eligibilityStatus.style.color = '#ffa'
+    return
+  }
+
+  if (eligibility.inProgress) {
+    eligibilityStatus.textContent = 'Claim your prize to continue'
+    eligibilityStatus.style.background = 'rgba(255, 200, 100, 0.2)'
+    eligibilityStatus.style.color = '#fda'
+    return
+  }
+
+  if (eligibility.ready) {
+    eligibilityStatus.textContent = 'Ready to spin!'
+    eligibilityStatus.style.background = 'rgba(100, 255, 100, 0.2)'
+    eligibilityStatus.style.color = '#afa'
+    return
+  }
+
+  eligibilityStatus.textContent = 'No spins available'
+  eligibilityStatus.style.background = 'rgba(255, 100, 100, 0.2)'
+  eligibilityStatus.style.color = '#faa'
+}
+
+// Check eligibility on load (non-demo mode only)
+if (!isDemoMode && customerId) {
+  fetchEligibility()
+} else {
+  updateEligibilityUI()
+}
 
 resultImage.style.width = '100%'
 resultImage.style.height = 'auto'
@@ -499,9 +657,30 @@ function updateControls() {
   ].includes(currentState)
   openBtn.disabled = isLocked || crateIsOpen
   closeBtn.disabled = isLocked || !crateIsOpen
-  spinBtn.disabled = isLocked || currentState === STATES.WINNER_PENDING_CLAIM
+
+  // Spin button: block if in progress (non-demo) - one purchase = one spin
+  if (!isDemoMode && eligibility.inProgress) {
+    spinBtn.disabled = true
+    spinBtn.textContent = 'Claim First'
+  } else {
+    spinBtn.disabled = isLocked || currentState === STATES.WINNER_PENDING_CLAIM
+    spinBtn.textContent = 'Spin'
+  }
+
   // Claim enabled for both WINNER_SELECTED and WINNER_PENDING_CLAIM
-  claimBtn.disabled = currentState !== STATES.WINNER_SELECTED && currentState !== STATES.WINNER_PENDING_CLAIM
+  const canClaimState = currentState === STATES.WINNER_SELECTED || currentState === STATES.WINNER_PENDING_CLAIM
+
+  // In demo mode or without spin_in_progress, show disabled claim with hint
+  if (isDemoMode) {
+    claimBtn.disabled = true
+    claimBtn.textContent = canClaimState ? 'Log in to Claim' : 'Claim'
+  } else if (canClaimState && !eligibility.inProgress) {
+    claimBtn.disabled = true
+    claimBtn.textContent = 'Buy a Spin to Claim'
+  } else {
+    claimBtn.disabled = !canClaimState
+    claimBtn.textContent = 'Claim'
+  }
 }
 
 function easeInOut(t) {
@@ -625,6 +804,30 @@ async function startSpin() {
   if ([STATES.OPENING, STATES.SPINNING, STATES.CLAIMING, STATES.CLOSING, STATES.WINNER_PENDING_CLAIM].includes(currentState)) {
     return
   }
+
+  // --- Eligibility Check ---
+  // Determine if this is a real spin (logged in + ready) or demo spin
+  if (isDemoMode) {
+    // Demo mode: always allow, but cannot claim
+    isRealSpin = false
+  } else if (eligibility.inProgress) {
+    // Already have spin in progress - BLOCK spinning until claimed
+    // One purchase = one spin
+    return
+  } else if (eligibility.ready) {
+    // Real mode with eligibility: consume spin entitlement first
+    const consumed = await consumeSpinEntitlement()
+    if (!consumed) {
+      // Failed to consume - refresh eligibility and abort
+      await fetchEligibility()
+      return
+    }
+    isRealSpin = true
+  } else {
+    // Not eligible for real spin - allow demo spin
+    isRealSpin = false
+  }
+
   // Cancel any pending auto-close
   cancelAutoClose()
   // Clear any existing spin
@@ -749,9 +952,38 @@ spinBtn.addEventListener('click', () => {
   startSpin()
 })
 
-claimBtn.addEventListener('click', () => {
+claimBtn.addEventListener('click', async () => {
   // Allow claim from both WINNER_SELECTED and WINNER_PENDING_CLAIM
   if (currentState !== STATES.WINNER_SELECTED && currentState !== STATES.WINNER_PENDING_CLAIM) return
+
+  // Prevent double-submit
+  if (claimInProgress) return
+  claimInProgress = true
+
+  // --- Eligibility Gate for Claim ---
+  if (isDemoMode) {
+    // Demo mode: cannot claim
+    alert('Demo mode: Log in and purchase a spin to claim prizes!')
+    claimInProgress = false
+    return
+  }
+
+  if (!eligibility.inProgress) {
+    // No spin in progress - cannot claim
+    alert('No spin in progress. Spin first to claim a prize!')
+    claimInProgress = false
+    return
+  }
+
+  // Call API to claim spin
+  const claimed = await claimSpinEntitlement()
+  if (!claimed) {
+    alert('Failed to claim prize. Please try again.')
+    claimInProgress = false
+    await fetchEligibility()
+    return
+  }
+
   cancelAutoClose()
   playSfx(claimSfx, 1)
   setState(STATES.CLAIMING)
@@ -759,6 +991,9 @@ claimBtn.addEventListener('click', () => {
   closeCrate().then(() => {
     setState(STATES.CLAIMED)
     setQuestionMarksVisible(true)
+    claimInProgress = false
+    // Reset for next spin
+    isRealSpin = false
   })
 })
 

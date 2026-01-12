@@ -181,6 +181,9 @@ Key CSS custom properties in `src/style.css`:
 - [x] Hat swap scale pop effect
 - [x] Audio respects user gesture (autoplay-safe)
 - [x] Prompt positioned on chest front face
+- [x] **Eligibility system** (tag-based via Shopify Admin API)
+- [x] **Vercel serverless functions** (/api/eligibility, /api/consume-spin, /api/claim-spin)
+- [x] **Demo mode support** (URL param `demo=1` or no customer_id)
 
 ### 🔧 Technical Details
 - **Spin duration**: Auto-calculated from audio metadata (6s default fallback)
@@ -191,6 +194,33 @@ Key CSS custom properties in `src/style.css`:
 - **Prompt anchor**: Chest front at 62% height, 0.35 units toward camera
 - **Idle bob**: Only lookAt modulation (Y ±0.03, X ±0.015)
 
+### 🔐 Eligibility System
+
+**Tag-based entitlement flow:**
+1. Customer purchases spin → Shopify Flow adds `spin_ready` tag
+2. Customer clicks spin → `/api/consume-spin` removes `spin_ready`, adds `spin_in_progress`
+3. Customer claims prize → `/api/claim-spin` removes `spin_in_progress`
+
+**URL Parameters:**
+- `customer_id=123` - Shopify customer ID (passed from store iframe)
+- `demo=1` - Force demo mode (spins allowed, claim blocked)
+
+**API Endpoints (Vercel serverless):**
+- `GET /api/eligibility?customer_id=123` - Check tags
+- `POST /api/consume-spin` - Consume spin entitlement
+- `POST /api/claim-spin` - Finalize claim
+
+**Environment Variables:**
+- `SHOPIFY_SHOP_DOMAIN` - e.g., `your-store.myshopify.com`
+- `SHOPIFY_ADMIN_ACCESS_TOKEN` - Admin API token
+- `SHOPIFY_API_VERSION` - Optional, defaults to `2024-10`
+
+**Frontend State (`src/main.js:15-27`):**
+- `isDemoMode` - true if no customer_id or demo=1
+- `eligibility.ready` - true if `spin_ready` tag present
+- `eligibility.inProgress` - true if `spin_in_progress` tag present
+- `isRealSpin` - tracks if current spin consumed entitlement
+
 ### 🎯 Potential Future Enhancements
 - [ ] Rarity system (common/rare/legendary hats with weighted selection)
 - [ ] Scrolling reel carousel instead of simple image swap
@@ -200,6 +230,7 @@ Key CSS custom properties in `src/style.css`:
 - [ ] Sound effects (open chest, hat cycling clicks, winner fanfare)
 - [ ] Mobile-optimized controls
 - [ ] Save/load claimed hats to localStorage
+- [ ] HMAC signature verification for customer_id
 
 ## Notes for Future Development
 
