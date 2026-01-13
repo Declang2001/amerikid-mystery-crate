@@ -1,13 +1,67 @@
 /**
  * Shopify Admin API helper for tag-based eligibility
+ * Uses Client Credentials Grant for auto-minting access tokens
  */
 
 const SHOP_DOMAIN = process.env.SHOPIFY_SHOP_DOMAIN
-const ACCESS_TOKEN = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN
+const CLIENT_ID = process.env.SHOPIFY_CLIENT_ID
+const CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET
 const API_VERSION = process.env.SHOPIFY_API_VERSION || '2024-10'
 
 const TAG_SPIN_READY = 'spin_ready'
 const TAG_SPIN_IN_PROGRESS = 'spin_in_progress'
+
+// Module-scope token cache
+let cachedToken = null
+let cachedExpiresAt = 0
+
+/**
+ * Get a valid access token, minting a new one if needed
+ * Uses Shopify Client Credentials Grant
+ * @returns {Promise<string>}
+ */
+async function getAccessToken() {
+  if (!SHOP_DOMAIN || !CLIENT_ID || !CLIENT_SECRET) {
+    throw new Error('Missing Shopify credentials: SHOPIFY_SHOP_DOMAIN, SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET')
+  }
+
+  // Reuse cached token if still valid (with 60s buffer)
+  if (cachedToken && Date.now() < cachedExpiresAt - 60000) {
+    return cachedToken
+  }
+
+  // Mint new token via Client Credentials Grant
+  const tokenUrl = `https://${SHOP_DOMAIN}/admin/oauth/access_token`
+
+  const body = new URLSearchParams({
+    grant_type: 'client_credentials',
+    client_id: CLIENT_ID,
+    client_secret: CLIENT_SECRET
+  })
+
+  const res = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: body.toString()
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Shopify OAuth error ${res.status}: ${text}`)
+  }
+
+  const data = await res.json()
+
+  // Cache the token
+  // Shopify returns expires_in in seconds; convert to ms and add to current time
+  cachedToken = data.access_token
+  const expiresInMs = (data.expires_in || 3600) * 1000
+  cachedExpiresAt = Date.now() + expiresInMs
+
+  return cachedToken
+}
 
 /**
  * Get customer data including tags
@@ -15,16 +69,14 @@ const TAG_SPIN_IN_PROGRESS = 'spin_in_progress'
  * @returns {Promise<{id: number, tags: string[]} | null>}
  */
 export async function getCustomer(customerId) {
-  if (!SHOP_DOMAIN || !ACCESS_TOKEN) {
-    throw new Error('Missing Shopify credentials in environment')
-  }
+  const accessToken = await getAccessToken()
 
   const url = `https://${SHOP_DOMAIN}/admin/api/${API_VERSION}/customers/${customerId}.json?fields=id,tags`
 
   const res = await fetch(url, {
     method: 'GET',
     headers: {
-      'X-Shopify-Access-Token': ACCESS_TOKEN,
+      'X-Shopify-Access-Token': accessToken,
       'Content-Type': 'application/json'
     }
   })
@@ -61,16 +113,14 @@ export async function getCustomer(customerId) {
  * @returns {Promise<boolean>}
  */
 export async function updateCustomerTags(customerId, tags) {
-  if (!SHOP_DOMAIN || !ACCESS_TOKEN) {
-    throw new Error('Missing Shopify credentials in environment')
-  }
+  const accessToken = await getAccessToken()
 
   const url = `https://${SHOP_DOMAIN}/admin/api/${API_VERSION}/customers/${customerId}.json`
 
   const res = await fetch(url, {
     method: 'PUT',
     headers: {
-      'X-Shopify-Access-Token': ACCESS_TOKEN,
+      'X-Shopify-Access-Token': accessToken,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({

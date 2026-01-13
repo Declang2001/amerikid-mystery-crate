@@ -212,8 +212,14 @@ Key CSS custom properties in `src/style.css`:
 
 **Environment Variables:**
 - `SHOPIFY_SHOP_DOMAIN` - e.g., `your-store.myshopify.com`
-- `SHOPIFY_ADMIN_ACCESS_TOKEN` - Admin API token
+- `SHOPIFY_CLIENT_ID` - App Client ID (from Partners dashboard)
+- `SHOPIFY_CLIENT_SECRET` - App Client Secret
 - `SHOPIFY_API_VERSION` - Optional, defaults to `2024-10`
+
+**Token Management:**
+- Access tokens auto-minted via Client Credentials Grant
+- Cached in module scope with 60s buffer before expiry
+- No manual token rotation needed
 
 **Frontend State (`src/main.js:15-27`):**
 - `isDemoMode` - true if no customer_id or demo=1

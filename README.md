@@ -105,8 +105,11 @@ Set these in your Vercel project settings:
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `SHOPIFY_SHOP_DOMAIN` | Your Shopify store domain | `your-store.myshopify.com` |
-| `SHOPIFY_ADMIN_ACCESS_TOKEN` | Admin API access token | `shpat_xxxxx` |
+| `SHOPIFY_CLIENT_ID` | App Client ID (from Partners dashboard) | `abc123...` |
+| `SHOPIFY_CLIENT_SECRET` | App Client Secret | `shpss_xxxxx` |
 | `SHOPIFY_API_VERSION` | API version (optional) | `2024-10` |
+
+**Note:** Access tokens are auto-minted via Client Credentials Grant and cached with 60s buffer before expiry. No manual token rotation needed.
 
 ### Customer Tags
 
