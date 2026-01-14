@@ -1868,10 +1868,10 @@ function createFallbackCrate() {
   const lidPivot = new THREE.Group()
   lidPivot.position.set(0, 1.0, -0.7)
 
-  // Build lid from individual planks with gaps for realism
+  // Build lid from individual planks (no gaps - single smooth surface)
   const lidPlankCount = 4
   const lidTotalWidth = 2.6
-  const lidPlankGap = 0.012
+  const lidPlankGap = 0  // Removed gaps to eliminate vertical seams
   const lidPlankWidth = (lidTotalWidth - (lidPlankCount - 1) * lidPlankGap) / lidPlankCount
   const lidPlankHeight = 0.12
   const lidPlankDepth = 1.4
@@ -2014,6 +2014,17 @@ function createFallbackCrate() {
 
   // --- QUESTION MARKS: Decal / Textured Plane (Approach A) ---
   const DEBUG_QMARKS = false;
+  const debugFonts = urlParams.get('debugFonts') === '1';
+
+  // Font-load helper for question marks
+  async function waitForQMarkFont() {
+    if (!document.fonts || !document.fonts.load) return false;
+    try {
+      await document.fonts.load("420px 'Black Ops One'");
+      await document.fonts.ready;
+      return document.fonts.check("12px 'Black Ops One'");
+    } catch (e) { return false; }
+  }
 
   // 1) Generate canvas texture with two question marks (with glow)
   const qCanvas = document.createElement('canvas');
@@ -2021,47 +2032,86 @@ function createFallbackCrate() {
   qCanvas.height = 512;
   const qCtx = qCanvas.getContext('2d');
 
-  // Clear to transparent
-  qCtx.clearRect(0, 0, 1024, 512);
+  // 6) Create glow layer canvas (moved up for shared draw function)
+  const qGlowCanvas = document.createElement('canvas');
+  qGlowCanvas.width = 1024;
+  qGlowCanvas.height = 512;
+  const qGlowCtx = qGlowCanvas.getContext('2d');
 
-  // Setup for glow drawing
-  qCtx.font = 'bold 420px Impact, Haettenschweiler, "Arial Black", sans-serif';
-  qCtx.textAlign = 'center';
-  qCtx.textBaseline = 'middle';
+  // Reusable function to draw both question mark canvases
+  function drawQuestionMarksToCanvas() {
+    // --- Main question mark canvas ---
+    qCtx.clearRect(0, 0, 1024, 512);
+    qCtx.font = "420px 'Black Ops One', Impact, system-ui, sans-serif";
+    qCtx.textAlign = 'center';
+    qCtx.textBaseline = 'middle';
 
-  // Helper to draw one question mark (buttery yellow, readable base)
-  const drawQuestionMark = (x, y) => {
-    // Subtle shadow for depth
-    qCtx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-    qCtx.shadowBlur = 10;
-    qCtx.shadowOffsetX = 3;
-    qCtx.shadowOffsetY = 3;
+    // Helper to draw one question mark (buttery yellow, readable base)
+    const drawQuestionMark = (x, y) => {
+      qCtx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+      qCtx.shadowBlur = 10;
+      qCtx.shadowOffsetX = 3;
+      qCtx.shadowOffsetY = 3;
+      qCtx.strokeStyle = '#1a1000';
+      qCtx.lineWidth = 14;
+      qCtx.strokeText('?', x, y);
+      qCtx.shadowBlur = 0;
+      qCtx.shadowOffsetX = 0;
+      qCtx.shadowOffsetY = 0;
+      qCtx.fillStyle = '#ffd34d';
+      qCtx.fillText('?', x, y);
+    };
 
-    // Dark outline for readability
-    qCtx.strokeStyle = '#1a1000';
-    qCtx.lineWidth = 14;
-    qCtx.strokeText('?', x, y);
+    // Left question mark (normal orientation)
+    drawQuestionMark(256, 256);
+    // Right question mark (upside-down)
+    qCtx.save();
+    qCtx.translate(768, 256);
+    qCtx.rotate(Math.PI);
+    drawQuestionMark(0, 0);
+    qCtx.restore();
 
-    // Buttery yellow fill
-    qCtx.shadowBlur = 0;
-    qCtx.shadowOffsetX = 0;
-    qCtx.shadowOffsetY = 0;
-    qCtx.fillStyle = '#ffd34d';
-    qCtx.fillText('?', x, y);
-  };
+    // --- Glow question mark canvas ---
+    qGlowCtx.clearRect(0, 0, 1024, 512);
+    qGlowCtx.font = "420px 'Black Ops One', Impact, system-ui, sans-serif";
+    qGlowCtx.textAlign = 'center';
+    qGlowCtx.textBaseline = 'middle';
 
-  // Left question mark (normal orientation)
-  drawQuestionMark(256, 256);
+    const drawGlowQuestionMark = (x, y) => {
+      qGlowCtx.shadowColor = '#ffea7a';
+      qGlowCtx.shadowBlur = 60;
+      qGlowCtx.fillStyle = 'rgba(255, 234, 122, 0.6)';
+      qGlowCtx.fillText('?', x, y);
+      qGlowCtx.fillText('?', x, y);
+    };
 
-  // Right question mark (upside-down)
-  qCtx.save();
-  qCtx.translate(768, 256);
-  qCtx.rotate(Math.PI);
-  drawQuestionMark(0, 0);
-  qCtx.restore();
+    drawGlowQuestionMark(256, 256);
+    qGlowCtx.save();
+    qGlowCtx.translate(768, 256);
+    qGlowCtx.rotate(Math.PI);
+    drawGlowQuestionMark(0, 0);
+    qGlowCtx.restore();
+  }
+
+  // Draw immediately (fallback font if Black Ops One not yet loaded)
+  if (debugFonts) console.log('[Fonts] Before load:', document.fonts?.check("12px 'Black Ops One'"));
+  drawQuestionMarksToCanvas();
 
   const qTexture = new THREE.CanvasTexture(qCanvas);
   qTexture.colorSpace = THREE.SRGBColorSpace;
+
+  const qGlowTexture = new THREE.CanvasTexture(qGlowCanvas);
+  qGlowTexture.colorSpace = THREE.SRGBColorSpace;
+
+  // Re-draw after font loads
+  waitForQMarkFont().then((loaded) => {
+    if (debugFonts) console.log('[Fonts] After load:', loaded);
+    if (loaded) {
+      drawQuestionMarksToCanvas();
+      qTexture.needsUpdate = true;
+      qGlowTexture.needsUpdate = true;
+    }
+  });
 
   // 2) Create decal material (MeshBasicMaterial, no glow until crate opens)
   const qDecalMat = new THREE.MeshBasicMaterial({
@@ -2091,37 +2141,10 @@ function createFallbackCrate() {
   qDecalPlane.renderOrder = 999;  // Render on top
 
   // 5) Add to lidPivot (opens with lid)
-  lidPivot.add(qDecalPlane);
+  lidPivot.add(qDecalPlane)
   lidQuestionMarks = qDecalPlane;
 
-  // 6) Create glow layer for question marks (controlled by visibility, not just opacity)
-  const qGlowCanvas = document.createElement('canvas');
-  qGlowCanvas.width = 1024;
-  qGlowCanvas.height = 512;
-  const qGlowCtx = qGlowCanvas.getContext('2d');
-  qGlowCtx.clearRect(0, 0, 1024, 512);
-  qGlowCtx.font = 'bold 420px Impact, Haettenschweiler, "Arial Black", sans-serif';
-  qGlowCtx.textAlign = 'center';
-  qGlowCtx.textBaseline = 'middle';
-
-  // Draw blurred glow question marks
-  const drawGlowQuestionMark = (x, y) => {
-    qGlowCtx.shadowColor = '#ffea7a';
-    qGlowCtx.shadowBlur = 60;
-    qGlowCtx.fillStyle = 'rgba(255, 234, 122, 0.6)';
-    qGlowCtx.fillText('?', x, y);
-    qGlowCtx.fillText('?', x, y); // Double for stronger glow
-  };
-  drawGlowQuestionMark(256, 256);
-  qGlowCtx.save();
-  qGlowCtx.translate(768, 256);
-  qGlowCtx.rotate(Math.PI);
-  drawGlowQuestionMark(0, 0);
-  qGlowCtx.restore();
-
-  const qGlowTexture = new THREE.CanvasTexture(qGlowCanvas);
-  qGlowTexture.colorSpace = THREE.SRGBColorSpace;
-
+  // 6) Glow layer material (canvas already created above)
   questionMarkGlowMat = new THREE.MeshBasicMaterial({
     map: qGlowTexture,
     transparent: true,
@@ -2224,6 +2247,31 @@ function createFallbackCrate() {
   )
   seamSide2.position.set(-0.4, 0.5, 0.705)
   group.add(seamSide2)
+
+  // Subtle horizontal cracks on lid top (dark wood lines, left-to-right)
+  const lidCrackMat = new THREE.MeshBasicMaterial({
+    color: 0x1a1008,  // Dark wood brown
+    transparent: true,
+    opacity: 0.5,
+    depthTest: true,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  })
+  const lidCrackPositions = [
+    { z: 0.35, width: 1.4, xOffset: 0.1 },
+    { z: 0.65, width: 1.0, xOffset: -0.2 },
+    { z: 0.95, width: 0.8, xOffset: 0.25 },
+    { z: 1.15, width: 0.6, xOffset: -0.1 },
+  ]
+  lidCrackPositions.forEach(({ z, width, xOffset }) => {
+    const lidCrack = new THREE.Mesh(
+      new THREE.PlaneGeometry(width, 0.012),  // Thin horizontal line
+      lidCrackMat
+    )
+    lidCrack.rotation.x = -Math.PI / 2  // Lay flat on lid
+    lidCrack.position.set(xOffset, 1.13, z)  // On lid top surface
+    lidPivot.add(lidCrack)  // Attached to lid so it moves when opening
+  })
 
   const handleGeo = new THREE.TorusGeometry(0.14, 0.03, 10, 20, Math.PI)
   const leftHandle = new THREE.Mesh(handleGeo, ropeMat)
@@ -2382,7 +2430,7 @@ function animate() {
       const center = new THREE.Vector3()
       bbox.getCenter(center)
       const height = bbox.max.y - bbox.min.y
-      const anchorY = bbox.min.y + height * 0.62
+      const anchorY = bbox.min.y + height * 0.38  // Lowered to position near latch
       const anchor = new THREE.Vector3(center.x, anchorY, center.z)
 
       const dirToCam = camera.position.clone().sub(center).normalize()
@@ -2421,9 +2469,10 @@ function animate() {
       mat.opacity = crackOpacity
     }
 
-    // Drive question mark glow opacity
+    // Drive question mark glow opacity (continuous subtle pulse + state-driven boost)
     if (questionMarkGlowMat) {
-      questionMarkGlowMat.opacity = leak * 0.7 * flicker
+      const qmarkPulse = 0.35 + 0.15 * Math.sin(time * 2.5) // Subtle 0.20–0.50 range pulse
+      questionMarkGlowMat.opacity = qmarkPulse + leak * 0.5 * flicker
     }
   }
 
