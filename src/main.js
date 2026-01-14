@@ -283,34 +283,228 @@ spinAudio.addEventListener('loadedmetadata', () => {
   }
 })
 
+// --- Audio System (iframe-safe) ---
+// Debug mode: add ?debugAudio=1 to URL
+const debugAudio = urlParams.get('debugAudio') === '1'
+const isEmbedded = window.self !== window.top
+
+// Centralized audio state
+const audioState = {
+  unlocked: false,
+  unlockTime: null,
+  lastUnlockAttempt: 0,
+  lastError: null,
+  playAttempts: 0,
+  playSuccesses: 0
+}
+
+function audioLog(...args) {
+  if (!debugAudio) return
+  const prefix = `[Audio ${isEmbedded ? 'IFRAME' : 'TOP'}]`
+  console.log(prefix, ...args, { ...audioState })
+}
+
 // SFX Audio objects (reusable)
 const openSfx = new Audio('/sfx/open.mp3')
 const closeSfx = new Audio('/sfx/close.mp3')
 const claimSfx = new Audio('/sfx/claim.mp3')
 
-// SFX helper: allows rapid retriggering without console spam
+// ALL audio elements that need unlocking (includes spinAudio)
+const allAudioElements = [spinAudio, openSfx, closeSfx, claimSfx]
+
+// Debounce threshold to avoid spamming unlock attempts
+const UNLOCK_DEBOUNCE_MS = 300
+
+// Synchronous unlock - MUST stay in the user gesture call stack
+// Returns true if unlock succeeded, false otherwise
+function tryUnlockAudio() {
+  if (audioState.unlocked) return true
+
+  // Debounce rapid attempts
+  const now = Date.now()
+  if (now - audioState.lastUnlockAttempt < UNLOCK_DEBOUNCE_MS) {
+    return false
+  }
+  audioState.lastUnlockAttempt = now
+
+  audioLog('Attempting unlock...')
+
+  let pendingCount = 0
+  let resolvedCount = 0
+  let rejectedCount = 0
+
+  for (const audio of allAudioElements) {
+    // Save original state
+    const prevMuted = audio.muted
+    const prevVol = audio.volume
+
+    // Mute during unlock attempt (do NOT change volume)
+    audio.muted = true
+
+    try {
+      const playPromise = audio.play()
+      if (playPromise) {
+        pendingCount++
+        playPromise.then(() => {
+          resolvedCount++
+          // Check if this is the first successful resolution
+          if (!audioState.unlocked && resolvedCount > 0) {
+            audioState.unlocked = true
+            audioState.unlockTime = Date.now()
+            audioLog('Unlock confirmed via promise resolution')
+            hideAudioOverlay()
+          }
+        }).catch((err) => {
+          rejectedCount++
+          audioState.lastError = err.message || String(err)
+          audioLog('Unlock play() rejected:', err.message)
+          // If all promises rejected, unlock stays false
+          if (rejectedCount === pendingCount && resolvedCount === 0) {
+            audioLog('All unlock attempts rejected')
+          }
+        })
+      } else {
+        // Older browsers: no promise means synchronous success
+        resolvedCount++
+      }
+    } catch (e) {
+      audioState.lastError = e.message || String(e)
+      audioLog('Unlock play() threw:', e.message)
+    }
+
+    // Immediately pause and restore state (synchronous)
+    audio.pause()
+    audio.currentTime = 0
+    audio.muted = prevMuted
+    audio.volume = prevVol
+  }
+
+  // For older browsers that don't return promises
+  if (pendingCount === 0 && resolvedCount > 0) {
+    audioState.unlocked = true
+    audioState.unlockTime = Date.now()
+    audioLog('Unlock succeeded (sync)')
+    hideAudioOverlay()
+  }
+
+  return audioState.unlocked
+}
+
+// Call this at the start of startSpin, claim, close handlers
+// Ensures unlock happens in the same user gesture that triggers sound
+function ensureUnlockedFromGesture() {
+  if (!audioState.unlocked) {
+    tryUnlockAudio()
+  }
+  return audioState.unlocked
+}
+
+// SFX helper: guards against playing before unlock
 function playSfx(audio, volume = 1) {
+  audioState.playAttempts++
+  if (!audioState.unlocked) {
+    if (debugAudio) audioLog('playSfx blocked - not unlocked')
+    return
+  }
   try {
     audio.currentTime = 0
   } catch (_) {
     // Guard: audio may not be ready yet
   }
   audio.volume = volume
-  audio.play().catch(() => {})
+  audio.play().then(() => {
+    audioState.playSuccesses++
+  }).catch((err) => {
+    audioState.lastError = err.message || String(err)
+    if (debugAudio) audioLog('playSfx error:', err.message)
+  })
 }
 
-// One-time audio unlock on first user gesture (autoplay policy)
-const unlockAudio = () => {
-  const sfxList = [openSfx, closeSfx, claimSfx]
-  sfxList.forEach((sfx) => {
-    sfx.volume = 0
-    sfx.play().then(() => sfx.pause()).catch(() => {})
-  })
-  document.removeEventListener('pointerdown', unlockAudio)
-  document.removeEventListener('click', unlockAudio)
+// --- Iframe "Tap to enable sound" overlay ---
+let audioOverlay = null
+
+function createAudioOverlay() {
+  if (!isEmbedded) return // Only show in iframes
+  if (audioState.unlocked) return
+
+  audioOverlay = document.createElement('div')
+  audioOverlay.id = 'audio-unlock-overlay'
+  audioOverlay.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+      </svg>
+      <span>Tap to enable sound</span>
+    </div>
+  `
+  audioOverlay.style.cssText = `
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: system-ui, sans-serif;
+    font-size: 16px;
+    z-index: 9999;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+  `
+
+  // Overlay tap handler - retryable until unlock succeeds
+  function handleOverlayTap(e) {
+    e.stopPropagation()
+    e.preventDefault()
+    audioLog('Overlay tap')
+    tryUnlockAudio()
+    // Only hide if unlock actually succeeded
+    // If not, overlay stays for retry
+  }
+
+  audioOverlay.addEventListener('pointerdown', handleOverlayTap, { capture: true })
+  audioOverlay.addEventListener('touchstart', handleOverlayTap, { capture: true, passive: false })
+  document.body.appendChild(audioOverlay)
+  audioLog('Audio overlay shown')
 }
-document.addEventListener('pointerdown', unlockAudio, { once: true })
-document.addEventListener('click', unlockAudio, { once: true })
+
+function hideAudioOverlay() {
+  if (audioOverlay && audioOverlay.parentNode) {
+    audioOverlay.parentNode.removeChild(audioOverlay)
+    audioOverlay = null
+    audioLog('Audio overlay hidden')
+  }
+}
+
+// --- Visibility and focus handlers ---
+function handleVisibilityChange() {
+  audioLog('Visibility changed:', document.visibilityState)
+}
+
+function handleWindowFocus() {
+  audioLog('Window focus gained')
+}
+
+// --- Passive unlock listener (retryable) ---
+function handlePassiveUnlock() {
+  if (audioState.unlocked) return
+  tryUnlockAudio()
+}
+
+// --- Initialize audio system ---
+document.addEventListener('visibilitychange', handleVisibilityChange)
+window.addEventListener('focus', handleWindowFocus)
+
+// Passive unlock listeners - these fire on any interaction, retry until unlocked
+document.addEventListener('pointerdown', handlePassiveUnlock, { capture: true })
+document.addEventListener('touchstart', handlePassiveUnlock, { capture: true, passive: true })
+
+// Show overlay for iframe embeds
+createAudioOverlay()
+
+audioLog('Audio system initialized', { isEmbedded })
 
 // Helper: Promise-based delay
 function delay(ms) {
@@ -800,6 +994,9 @@ function spinEasing(t) {
 }
 
 async function startSpin() {
+  // Ensure audio unlocked in same gesture that triggers spin
+  ensureUnlockedFromGesture()
+
   // Block spinning during active states or when winner is pending claim
   if ([STATES.OPENING, STATES.SPINNING, STATES.CLAIMING, STATES.CLOSING, STATES.WINNER_PENDING_CLAIM].includes(currentState)) {
     return
@@ -936,6 +1133,9 @@ openBtn.addEventListener('click', () => {
 })
 
 closeBtn.addEventListener('click', () => {
+  // Ensure audio unlocked in same gesture
+  ensureUnlockedFromGesture()
+
   if ([STATES.OPENING, STATES.SPINNING, STATES.CLAIMING, STATES.CLOSING].includes(currentState)) {
     return
   }
@@ -953,6 +1153,9 @@ spinBtn.addEventListener('click', () => {
 })
 
 claimBtn.addEventListener('click', async () => {
+  // Ensure audio unlocked in same gesture
+  ensureUnlockedFromGesture()
+
   // Allow claim from both WINNER_SELECTED and WINNER_PENDING_CLAIM
   if (currentState !== STATES.WINNER_SELECTED && currentState !== STATES.WINNER_PENDING_CLAIM) return
 
