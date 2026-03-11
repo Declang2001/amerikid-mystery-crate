@@ -34,16 +34,15 @@ app.innerHTML = `
     <div class="overlay">
       <div class="panel">
         <div class="panel-header">
-          <p class="eyebrow">AmeriKid Mystery Crate</p>
-          <h1>Unbox the drop</h1>
-          <p class="subtitle">Spin the crate and land on a random hat.</p>
+          <h1 style="color: white;">CANDY FACTS MYSTERY BOX</h1>
+          <p class="subtitle">Spin the crate and land on a random hat</p>
           <p id="eligibilityStatus" class="eligibility-status"></p>
         </div>
         <div class="controls">
-          <button id="openBtn" type="button">Open</button>
-          <button id="closeBtn" type="button">Close</button>
           <button id="spinBtn" type="button">Spin</button>
           <button id="claimBtn" type="button">Claim</button>
+          <button id="closeBtn" type="button">Close</button>
+          <button id="openBtn" type="button">Open</button>
         </div>
         <div class="result-card">
           <div class="result-media">
@@ -77,6 +76,7 @@ const resultStatus = document.querySelector('#resultStatus')
 const animationCount = document.querySelector('#animationCount')
 const animationList = document.querySelector('#animationList')
 const errorBanner = document.querySelector('#errorBanner')
+const panel = document.querySelector('.panel')
 
 const animationInfo = document.querySelector('#animationInfo')
 animationInfo.style.display = 'none'
@@ -216,23 +216,8 @@ if (!isDemoMode && customerId) {
   updateEligibilityUI()
 }
 
-resultImage.style.width = '100%'
-resultImage.style.height = 'auto'
-resultImage.style.minHeight = '200px'
-resultImage.style.objectFit = 'contain'
-
 openBtn.style.display = 'none'
 closeBtn.style.display = ''
-
-const controlsContainer = document.querySelector('.controls')
-controlsContainer.style.display = 'grid'
-controlsContainer.style.gridTemplateColumns = '1fr 1fr'
-spinBtn.style.gridColumn = '1'
-spinBtn.style.gridRow = '1'
-closeBtn.style.gridColumn = '2'
-closeBtn.style.gridRow = '1'
-claimBtn.style.gridColumn = '1 / span 2'
-claimBtn.style.gridRow = '2'
 
 const pressXPrompt = document.createElement('div')
 pressXPrompt.innerHTML = `Press <span style="display: inline-block; width: 24px; height: 24px; background: #4a90e2; border-radius: 50%; color: white; text-align: center; line-height: 24px; font-weight: bold; margin: 0 4px;">X</span> for a Random Hat`
@@ -768,6 +753,18 @@ function formatStatus(state) {
 function setState(state) {
   currentState = state
   resultStatus.textContent = formatStatus(state)
+  
+  if (panel) {
+    const isResultState = [
+      STATES.WINNER_SELECTED,
+      STATES.WINNER_PENDING_CLAIM,
+      STATES.CLAIMING,
+      STATES.CLAIMED,
+      STATES.CLOSING
+    ].includes(state)
+    panel.classList.toggle('visible', isResultState)
+  }
+  
   updateControls()
 }
 
@@ -849,30 +846,42 @@ function updateControls() {
     STATES.CLAIMING,
     STATES.CLOSING
   ].includes(currentState)
-  openBtn.disabled = isLocked || crateIsOpen
-  closeBtn.disabled = isLocked || !crateIsOpen
+  
+  const isResultView = [
+    STATES.WINNER_SELECTED, 
+    STATES.WINNER_PENDING_CLAIM, 
+    STATES.CLAIMING, 
+    STATES.CLAIMED,
+    STATES.CLOSING
+  ].includes(currentState)
 
-  // Spin button: block if in progress (non-demo) - one purchase = one spin
-  if (!isDemoMode && eligibility.inProgress) {
-    spinBtn.disabled = true
-    spinBtn.textContent = 'Claim First'
-  } else {
-    spinBtn.disabled = isLocked || currentState === STATES.WINNER_PENDING_CLAIM
-    spinBtn.textContent = 'Spin'
-  }
+  // --- Button Visibility ---
+  // In the result phase, we only show Spin and Claim (stacked)
+  spinBtn.style.display = isResultView ? 'block' : 'none'
+  claimBtn.style.display = (isResultView && currentState !== STATES.CLAIMED) ? 'block' : 'none'
+  
+  // Hide internal utility buttons from the main result console
+  closeBtn.style.display = 'none'
+  openBtn.style.display = 'none'
 
-  // Claim enabled for both WINNER_SELECTED and WINNER_PENDING_CLAIM
+  // --- Spin Button Logic (Eligibility Driven) ---
+  const canSpinAgain = isDemoMode || (eligibility.ready && !eligibility.inProgress)
+  spinBtn.textContent = currentState === STATES.CLAIMED ? 'Spin Again' : 'Spin'
+  
+  // Grey out if not eligible
+  spinBtn.disabled = isLocked || !canSpinAgain
+
+  // --- Claim Button Logic ---
   const canClaimState = currentState === STATES.WINNER_SELECTED || currentState === STATES.WINNER_PENDING_CLAIM
 
-  // In demo mode or without spin_in_progress, show disabled claim with hint
   if (isDemoMode) {
     claimBtn.disabled = true
-    claimBtn.textContent = canClaimState ? 'Log in to Claim' : 'Claim'
+    claimBtn.textContent = 'Log in to Claim'
   } else if (canClaimState && !eligibility.inProgress) {
     claimBtn.disabled = true
     claimBtn.textContent = 'Buy a Spin to Claim'
   } else {
-    claimBtn.disabled = !canClaimState
+    claimBtn.disabled = isLocked || !canClaimState
     claimBtn.textContent = 'Claim'
   }
 }
@@ -1211,7 +1220,7 @@ function createHatDisplay3D() {
   bbox.getCenter(center)
 
   hatDisplayInsideY = bbox.min.y + 0.3
-  hatDisplayAboveY = bbox.max.y + 0.8
+  hatDisplayAboveY = bbox.max.y + 0.45
   hatDisplayTargetY = hatDisplayInsideY
 
   hatDisplayRoot = new THREE.Group()
@@ -1233,7 +1242,7 @@ function createHatDisplay3D() {
     })
   )
   glowPlane.name = 'hatGlow'
-  glowPlane.renderOrder = 8
+  glowPlane.renderOrder = 1000
   glowPlane.scale.setScalar(1.18)
   hatDisplayGlow = glowPlane
   hatDisplayRoot.add(glowPlane)
@@ -1252,7 +1261,7 @@ function createHatDisplay3D() {
     })
   )
   outlinePlane.name = 'hatOutline'
-  outlinePlane.renderOrder = 9
+  outlinePlane.renderOrder = 1001
   outlinePlane.scale.setScalar(1.06)
   hatDisplayOutline = outlinePlane
   hatDisplayRoot.add(outlinePlane)
@@ -1261,7 +1270,7 @@ function createHatDisplay3D() {
     new THREE.PlaneGeometry(1.2, 1.2),
     new THREE.MeshBasicMaterial({
       map: hatTextures[currentHatIndex],
-      transparent: false,
+      transparent: true,
       alphaTest: 0.35,
       toneMapped: false,
       depthWrite: false,
@@ -1269,7 +1278,7 @@ function createHatDisplay3D() {
     })
   )
   hatPlane.name = 'hatDisplay'
-  hatPlane.renderOrder = 10
+  hatPlane.renderOrder = 1002
   hatDisplay3D = hatPlane
   hatDisplayRoot.add(hatPlane)
 
@@ -2379,7 +2388,7 @@ function createFallbackCrate() {
 
   crateRoot = group
   fallbackLidPivot = lidPivot
-  group.position.set(0, 0, 0)
+  // group.position.y was already set to blockH above
   group.rotation.y = 0
   group.scale.x = 1.35  // Horizontal stretch
   scene.add(group)
@@ -2479,8 +2488,16 @@ function animate() {
   if (hatDisplayRoot && hatDisplay3D && hatDisplayGlow) {
     const time = clock.getElapsedTime()
 
-    // Hats visible during SPINNING, WINNER_SELECTED, and WINNER_PENDING_CLAIM
-    if (currentState === STATES.SPINNING || currentState === STATES.WINNER_SELECTED || currentState === STATES.WINNER_PENDING_CLAIM) {
+    // Hats visible during SPINNING, WINNER_SELECTED, WINNER_PENDING_CLAIM, CLOSING, and CLAIMING
+    const isHatVisibleState = [
+      STATES.SPINNING,
+      STATES.WINNER_SELECTED,
+      STATES.WINNER_PENDING_CLAIM,
+      STATES.CLOSING,
+      STATES.CLAIMING
+    ].includes(currentState)
+
+    if (isHatVisibleState) {
       hatDisplayRoot.visible = true
       hatDisplayTargetY = hatDisplayAboveY
     } else {
