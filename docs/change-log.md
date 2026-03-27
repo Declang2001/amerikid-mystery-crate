@@ -5,6 +5,16 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- Button Visibility Gated by Path and Spin Availability
+
+**Type:** UI state logic fix. `src/main.js` `updateControls()` function.
+
+Preview path: spin button is now always hidden after result reveal (preview gets only 1 spin, no Spin Again). Only "Proceed to Checkout" is shown.
+
+Purchased path: "Spin Again" is only visible in result states when another purchased spin actually exists (`spinsRemaining > 0` and no `hatWon`). When no spins remain, only "Save Result" is shown.
+
+---
+
 ## 2026-03-27 -- Close SFX Plays on Every Crate Close
 
 **Type:** Audio behavior fix. `src/main.js` `closeCrate()` function.

@@ -43,13 +43,15 @@ CLAUDE.md and README.md still reflect the older spin-era concept and have not be
 - Customer can spin once, optionally spin again, then finalize
 - Crate stays open after result is revealed until the user acts (Save Result or Spin Again)
 - Spin Again closes the crate, resets the hat display, then starts the next spin
+- "Spin Again" only appears when another purchased spin exists; hidden when no spins remain
+- When no spins remain, only "Save Result" is shown
 - Final chosen hat must be **durably persisted** for fulfillment
 
 ### 2. Preview Path
 - Customer enters the crate without prior purchase
 - Customer gets **1 preview spin**
 - Preview spin is non-binding (no durable persistence needed)
-- After preview result, CTA becomes **"Proceed to Checkout"**
+- After preview result, only "Proceed to Checkout" is shown (no Spin Again, no generic spin button)
 - Refresh loophole on preview path is acceptable for launch
 - Preview result does not need reservation-safe logic
 

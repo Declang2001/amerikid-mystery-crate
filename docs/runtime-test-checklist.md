@@ -45,7 +45,7 @@ Each item should be tested manually unless automated tests exist.
 - [ ] User can enter without `customer_id` param
 - [ ] User gets 1 preview spin
 - [ ] Preview spin plays full animation and reveals a hat
-- [ ] After preview result, CTA shows "Proceed to Checkout" (or equivalent)
+- [ ] After preview result, only "Proceed to Checkout" is visible (no Spin Again, no generic spin button)
 - [ ] Preview result is NOT persisted to Shopify
 - [ ] Refreshing the page allows another preview spin (acceptable for launch)
 
@@ -56,10 +56,11 @@ Each item should be tested manually unless automated tests exist.
 - [ ] User with valid `customer_id` and `crate_spins:2` can spin
 - [ ] First spin decrements to `crate_spins:1`, reveals a hat
 - [ ] After result reveal, crate stays open (no auto-close)
-- [ ] After first result, user sees "Spin Again" and "Save Result" buttons
+- [ ] After first result (1 spin remaining), user sees both "Spin Again" and "Save Result"
+- [ ] "Spin Again" is hidden when no purchased spins remain
 - [ ] "Spin Again" closes the crate, hides the hat, then starts the next spin cleanly
 - [ ] "Spin Again" discards first result, consumes second spin, reveals new hat
-- [ ] After second spin (0 spins left), only "Save Result" is available
+- [ ] After second spin (0 spins left), only "Save Result" is visible (no Spin Again)
 - [ ] "Save Result" calls `/api/finalize`, writes `crate_hat_won:HAT-ID`
 - [ ] Finalize also removes all `crate_spins:*` tags (no more spins possible)
 - [ ] After finalize, spin button is disabled (spinsRemaining = 0, hatWon set)

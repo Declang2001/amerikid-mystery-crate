@@ -858,38 +858,38 @@ function updateControls() {
     STATES.CLOSING
   ].includes(currentState)
 
-  // --- Button Visibility ---
-  spinBtn.style.display = isResultView ? 'block' : 'none'
-  claimBtn.style.display = (isResultView && currentState !== STATES.CLAIMED) ? 'block' : 'none'
-
   // Hide internal utility buttons from the main result console
   closeBtn.style.display = 'none'
   openBtn.style.display = 'none'
 
-  // --- Spin Button Logic ---
-  const isResultOrClaimed = [STATES.WINNER_SELECTED, STATES.WINNER_PENDING_CLAIM, STATES.CLAIMED].includes(currentState)
+  // --- Determine spin availability ---
+  const canPreviewSpin = isPreviewMode && previewSpinsUsed < PREVIEW_SPIN_LIMIT
+  const canPurchasedSpin = !isPreviewMode && eligibility.spinsRemaining > 0 && !eligibility.hatWon
+  const canFinalizeState = currentState === STATES.WINNER_SELECTED || currentState === STATES.WINNER_PENDING_CLAIM
+
+  // --- Spin Button ---
   if (isPreviewMode) {
-    // Preview: allow if under local limit
-    const canPreviewSpin = previewSpinsUsed < PREVIEW_SPIN_LIMIT
-    spinBtn.textContent = currentState === STATES.CLAIMED ? 'Spin Again' : 'Spin'
+    // Preview: never show Spin Again (only 1 preview spin). Hide entirely after use.
+    spinBtn.style.display = 'none'
+    spinBtn.textContent = 'Spin'
     spinBtn.disabled = isLocked || !canPreviewSpin
   } else {
-    // Purchased: allow if spins remain and no hat already finalized
-    const canPurchasedSpin = eligibility.spinsRemaining > 0 && !eligibility.hatWon
-    spinBtn.textContent = isResultOrClaimed && canPurchasedSpin ? 'Spin Again' : 'Spin'
+    // Purchased: only show Spin Again in result states when another spin exists
+    const showSpinAgain = isResultView && canPurchasedSpin
+    spinBtn.style.display = showSpinAgain ? 'block' : 'none'
+    spinBtn.textContent = 'Spin Again'
     spinBtn.disabled = isLocked || !canPurchasedSpin
   }
 
-  // --- Finalize Button Logic ---
-  const canFinalizeState = currentState === STATES.WINNER_SELECTED || currentState === STATES.WINNER_PENDING_CLAIM
-
+  // --- Finalize / Forward Action Button ---
   if (isPreviewMode) {
-    // Preview: show "Proceed to Checkout" instead of finalize
+    // Preview: show "Proceed to Checkout" after result, hide after claimed
+    claimBtn.style.display = (isResultView && currentState !== STATES.CLAIMED) ? 'block' : 'none'
     claimBtn.disabled = false
     claimBtn.textContent = 'Proceed to Checkout'
-    // Only show after result, hide if not in result view
-    claimBtn.style.display = (isResultView && currentState !== STATES.CLAIMED) ? 'block' : 'none'
   } else {
+    // Purchased: show "Save Result" in finalizable states
+    claimBtn.style.display = (isResultView && currentState !== STATES.CLAIMED) ? 'block' : 'none'
     claimBtn.disabled = isLocked || !canFinalizeState
     claimBtn.textContent = 'Save Result'
   }
