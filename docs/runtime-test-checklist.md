@@ -140,6 +140,16 @@ Each item should be tested manually unless automated tests exist.
 
 ---
 
+## 12. Physical Material Pass
+
+- [ ] Wood planks show subtle contrast and tactile variation without changing the accepted crate shape
+- [ ] Lid seams and body seams read deeper while question marks remain clean and fully readable
+- [ ] Hardware, latch, hinges, and side handles read clearly on desktop and mobile iframe layouts
+- [ ] Crate feels more grounded through local shadowing without swallowing the cinder blocks or room background
+- [ ] Lid open timing and motion still match the accepted cadence after the material pass
+
+---
+
 ## Notes
 
 - Items marked with **Iframe test** or **iOS Safari test** require testing in the actual

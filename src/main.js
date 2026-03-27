@@ -1399,9 +1399,15 @@ function createContactShadowTexture(size = 256) {
   const centerY = size / 2
   const radius = size / 2
 
-  const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius)
-  gradient.addColorStop(0, 'rgba(0, 0, 0, 1)')
-  gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.4)')
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.18)'
+  ctx.beginPath()
+  ctx.ellipse(centerX, centerY, radius * 0.88, radius * 0.5, 0, 0, Math.PI * 2)
+  ctx.fill()
+
+  const gradient = ctx.createRadialGradient(centerX, centerY, radius * 0.08, centerX, centerY, radius)
+  gradient.addColorStop(0, 'rgba(0, 0, 0, 0.95)')
+  gradient.addColorStop(0.28, 'rgba(0, 0, 0, 0.62)')
+  gradient.addColorStop(0.68, 'rgba(0, 0, 0, 0.18)')
   gradient.addColorStop(1, 'rgba(0, 0, 0, 0)')
 
   ctx.fillStyle = gradient
@@ -1470,6 +1476,11 @@ function createWoodTextureSet(width = 512, height = 512) {
     radius: 80 + Math.random() * 120,
     warmth: (Math.random() - 0.5) * 0.15
   }))
+  const stainBands = Array.from({ length: 5 }, () => ({
+    y: Math.random() * height,
+    width: 18 + Math.random() * 34,
+    strength: 0.03 + Math.random() * 0.06
+  }))
 
   let drift = Math.random() * Math.PI * 2
   const driftVariation = Math.random() * 0.03 + 0.01
@@ -1486,8 +1497,29 @@ function createWoodTextureSet(width = 512, height = 512) {
       const grainWide = Math.sin(x * 0.09 + warp)
       const grainMedium = Math.sin(x * 0.25 + warp * 0.7 + noiseB * 3)
       const grainFine = Math.sin(x * 0.55 + noiseC * 4)
+      const repeatedU = (x / width) * repeatX
+      const repeatedV = (y / height) * repeatY
+      const boardEdgeX = Math.min(repeatedU - Math.floor(repeatedU), 1 - (repeatedU - Math.floor(repeatedU)))
+      const boardEdgeY = Math.min(repeatedV - Math.floor(repeatedV), 1 - (repeatedV - Math.floor(repeatedV)))
+      const boardEdgeShade = Math.pow(1 - Math.min(1, boardEdgeX * 7.5), 2) * 0.09
+      const boardCrossShade = Math.pow(1 - Math.min(1, boardEdgeY * 8.5), 2) * 0.03
 
-      let heightValue = 0.52 + grainWide * 0.18 + grainMedium * 0.12 + grainFine * 0.06 + (noiseA - 0.5) * 0.1
+      let stainShift = 0
+      for (let i = 0; i < stainBands.length; i++) {
+        const band = stainBands[i]
+        const dist = Math.abs(y - band.y)
+        stainShift += Math.exp(-(dist * dist) / (2 * band.width * band.width)) * band.strength
+      }
+
+      let heightValue =
+        0.52 +
+        grainWide * 0.18 +
+        grainMedium * 0.12 +
+        grainFine * 0.06 +
+        (noiseA - 0.5) * 0.1 -
+        boardEdgeShade -
+        boardCrossShade * 0.45 -
+        stainShift * 0.22
 
       // Add subtle knots with swirl
       for (let i = 0; i < knots.length; i++) {
@@ -1516,6 +1548,19 @@ function createWoodTextureSet(width = 512, height = 512) {
       const index = y * width + x
       const h = heightData[index]
       const noise = sampleNoise(x * 0.5, y * 0.5)
+      const repeatedU = (x / width) * repeatX
+      const repeatedV = (y / height) * repeatY
+      const boardEdgeX = Math.min(repeatedU - Math.floor(repeatedU), 1 - (repeatedU - Math.floor(repeatedU)))
+      const boardEdgeY = Math.min(repeatedV - Math.floor(repeatedV), 1 - (repeatedV - Math.floor(repeatedV)))
+      const boardEdgeShade = Math.pow(1 - Math.min(1, boardEdgeX * 7.5), 2) * 0.09
+      const boardCrossShade = Math.pow(1 - Math.min(1, boardEdgeY * 8.5), 2) * 0.03
+
+      let stainShift = 0
+      for (let i = 0; i < stainBands.length; i++) {
+        const band = stainBands[i]
+        const dist = Math.abs(y - band.y)
+        stainShift += Math.exp(-(dist * dist) / (2 * band.width * band.width)) * band.strength
+      }
 
       // Calculate color variation from patches
       let warmthShift = 0
@@ -1541,6 +1586,14 @@ function createWoodTextureSet(width = 512, height = 512) {
       g += warmthShift * 12
       b += warmthShift * 5
 
+      // Subtle darker board edges and stains keep repeated planks from reading too flat.
+      r *= 1 - boardEdgeShade * 0.35 - boardCrossShade * 0.18
+      g *= 1 - boardEdgeShade * 0.42 - boardCrossShade * 0.22
+      b *= 1 - boardEdgeShade * 0.5 - boardCrossShade * 0.26
+      r -= stainShift * 14
+      g -= stainShift * 10
+      b -= stainShift * 5
+
       // Subtle tint variation
       const tint = 0.94 + noise * 0.12
       r = Math.min(255, Math.max(0, r * tint))
@@ -1554,7 +1607,7 @@ function createWoodTextureSet(width = 512, height = 512) {
       colorData.data[cIndex + 3] = 255
 
       // Improved roughness detail
-      let roughness = 0.58 + (1 - h) * 0.32 + (noise - 0.5) * 0.18
+      let roughness = 0.58 + (1 - h) * 0.32 + (noise - 0.5) * 0.18 + boardEdgeShade * 0.18 + stainShift * 0.08
       roughness = Math.min(1, Math.max(0, roughness))
       const roughValue = Math.round(roughness * 255)
       roughData.data[cIndex] = roughValue
@@ -1779,39 +1832,93 @@ function createFallbackCrate() {
   const woodRoughnessMap = woodMaps.roughnessMap
   const woodNormalMap = woodMaps.normalMap
 
-  const woodMat = new THREE.MeshStandardMaterial({
-    map: woodTexture,
-    roughnessMap: woodRoughnessMap,
-    normalMap: woodNormalMap,
-    roughness: 0.82,
-    metalness: 0.05
+  const cloneTextureVariant = (texture, offsetX, offsetY) => {
+    const clone = texture.clone()
+    clone.wrapS = texture.wrapS
+    clone.wrapT = texture.wrapT
+    clone.repeat.copy(texture.repeat)
+    clone.offset.set(offsetX, offsetY)
+    clone.colorSpace = texture.colorSpace
+    clone.needsUpdate = true
+    return clone
+  }
+
+  const createWoodMaterialVariant = ({
+    color = 0xffffff,
+    roughness = 0.82,
+    metalness = 0.05,
+    offsetX = 0,
+    offsetY = 0,
+    normalScale = 1,
+    side
+  } = {}) => new THREE.MeshStandardMaterial({
+    color,
+    map: cloneTextureVariant(woodTexture, offsetX, offsetY),
+    roughnessMap: cloneTextureVariant(woodRoughnessMap, offsetX, offsetY),
+    normalMap: cloneTextureVariant(woodNormalMap, offsetX, offsetY),
+    roughness,
+    metalness,
+    normalScale: new THREE.Vector2(normalScale, normalScale),
+    envMapIntensity: 0.32,
+    ...(side ? { side } : {})
   })
-  const woodDarkMat = new THREE.MeshStandardMaterial({
-    color: 0x4b311a,
-    map: woodTexture,
-    roughnessMap: woodRoughnessMap,
-    normalMap: woodNormalMap,
+
+  const woodMat = createWoodMaterialVariant({
+    roughness: 0.78,
+    offsetX: 0.02,
+    offsetY: 0.06,
+    normalScale: 1.15
+  })
+  const woodMatAlt = createWoodMaterialVariant({
+    color: 0xf2ebdf,
+    roughness: 0.84,
+    offsetX: 0.31,
+    offsetY: 0.18,
+    normalScale: 1.05
+  })
+  const woodMatDry = createWoodMaterialVariant({
+    color: 0xe0d6c7,
     roughness: 0.9,
-    metalness: 0.04
+    offsetX: 0.56,
+    offsetY: 0.42,
+    normalScale: 0.92
   })
-  const woodInnerMat = new THREE.MeshStandardMaterial({
-    color: 0x3a2515,
-    map: woodTexture,
-    roughnessMap: woodRoughnessMap,
-    normalMap: woodNormalMap,
-    roughness: 0.95,
+  const woodDarkMat = createWoodMaterialVariant({
+    color: 0x765334,
+    roughness: 0.88,
     metalness: 0.03,
+    offsetX: 0.21,
+    offsetY: 0.54,
+    normalScale: 1.0
+  })
+  const woodDarkMatAlt = createWoodMaterialVariant({
+    color: 0x644324,
+    roughness: 0.92,
+    metalness: 0.03,
+    offsetX: 0.71,
+    offsetY: 0.22,
+    normalScale: 0.94
+  })
+  const woodInnerMat = createWoodMaterialVariant({
+    color: 0x5d3a22,
+    roughness: 0.95,
+    metalness: 0.02,
+    offsetX: 0.83,
+    offsetY: 0.66,
+    normalScale: 0.86,
     side: THREE.DoubleSide
   })
   const metalMat = new THREE.MeshStandardMaterial({
-    color: 0x3f3f46,
-    roughness: 0.4,
-    metalness: 0.7
+    color: 0x4a4d56,
+    roughness: 0.5,
+    metalness: 0.82,
+    envMapIntensity: 0.8
   })
   const ropeMat = new THREE.MeshStandardMaterial({
-    color: 0xb7844b,
-    roughness: 0.8,
-    metalness: 0.05
+    color: 0xc3925a,
+    roughness: 0.88,
+    metalness: 0.02,
+    envMapIntensity: 0.18
   })
 
   const baseThickness = 0.08
@@ -1822,7 +1929,7 @@ function createFallbackCrate() {
 
   const floorPanel = new THREE.Mesh(
     new THREE.BoxGeometry(baseWidth, baseThickness, baseDepth),
-    woodMat
+    woodMatDry
   )
   floorPanel.position.y = baseThickness / 2
   floorPanel.castShadow = true
@@ -1840,7 +1947,7 @@ function createFallbackCrate() {
 
   const wallBack = new THREE.Mesh(
     new THREE.BoxGeometry(baseWidth, wallHeight, baseThickness),
-    woodMat
+    woodMatAlt
   )
   wallBack.position.set(0, baseThickness + wallHeight / 2, -baseDepth / 2 + baseThickness / 2)
   wallBack.castShadow = true
@@ -1850,7 +1957,7 @@ function createFallbackCrate() {
   const wallSideDepth = baseDepth - baseThickness * 2
   const wallLeft = new THREE.Mesh(
     new THREE.BoxGeometry(baseThickness, wallHeight, wallSideDepth),
-    woodMat
+    woodMatAlt
   )
   wallLeft.position.set(-baseWidth / 2 + baseThickness / 2, baseThickness + wallHeight / 2, 0)
   wallLeft.castShadow = true
@@ -1918,23 +2025,26 @@ function createFallbackCrate() {
   const plankFront = new THREE.BoxGeometry(1.8, 0.14, 0.05)
   const plankSide = new THREE.BoxGeometry(0.05, 0.14, 1.2)
   const plankOffsets = [0.2, 0.45, 0.7]
-  plankOffsets.forEach((y) => {
-    const front = new THREE.Mesh(plankFront, woodDarkMat)
+  plankOffsets.forEach((y, index) => {
+    const plankMat = index % 2 === 0 ? woodDarkMat : woodDarkMatAlt
+    const sideMat = index % 2 === 0 ? woodDarkMatAlt : woodDarkMat
+
+    const front = new THREE.Mesh(plankFront, plankMat)
     front.position.set(0, y, 0.67)
     front.castShadow = true
     front.receiveShadow = true
     group.add(front)
-    const back = new THREE.Mesh(plankFront, woodDarkMat)
+    const back = new THREE.Mesh(plankFront, sideMat)
     back.position.set(0, y, -0.67)
     back.castShadow = true
     back.receiveShadow = true
     group.add(back)
-    const left = new THREE.Mesh(plankSide, woodDarkMat)
+    const left = new THREE.Mesh(plankSide, sideMat)
     left.position.set(-0.97, y, 0)
     left.castShadow = true
     left.receiveShadow = true
     group.add(left)
-    const right = new THREE.Mesh(plankSide, woodDarkMat)
+    const right = new THREE.Mesh(plankSide, plankMat)
     right.position.set(0.97, y, 0)
     right.castShadow = true
     right.receiveShadow = true
@@ -1951,11 +2061,12 @@ function createFallbackCrate() {
   const lidPlankWidth = (lidTotalWidth - (lidPlankCount - 1) * lidPlankGap) / lidPlankCount
   const lidPlankHeight = 0.12
   const lidPlankDepth = 1.4
+  const lidPlankMaterials = [woodMat, woodMatAlt, woodMatDry, woodMatAlt]
 
   for (let i = 0; i < lidPlankCount; i++) {
     const heightVariation = (Math.random() - 0.5) * 0.015
     const plankGeo = new THREE.BoxGeometry(lidPlankWidth, lidPlankHeight, lidPlankDepth)
-    const plank = new THREE.Mesh(plankGeo, woodMat)
+    const plank = new THREE.Mesh(plankGeo, lidPlankMaterials[i])
     const xPos = -lidTotalWidth / 2 + lidPlankWidth / 2 + i * (lidPlankWidth + lidPlankGap)
     plank.position.set(xPos, 0.06 + heightVariation, 0.7)
     plank.castShadow = true
@@ -1965,7 +2076,7 @@ function createFallbackCrate() {
 
   // Cross braces on underside of lid (visible when open)
   const braceGeo = new THREE.BoxGeometry(2.4, 0.04, 0.12)
-  const brace1 = new THREE.Mesh(braceGeo, woodDarkMat)
+  const brace1 = new THREE.Mesh(braceGeo, woodDarkMatAlt)
   brace1.position.set(0, -0.02, 0.4)
   lidPivot.add(brace1)
   const brace2 = new THREE.Mesh(braceGeo, woodDarkMat)
@@ -1974,10 +2085,20 @@ function createFallbackCrate() {
 
   // Better metal material for hardware
   const hardwareMat = new THREE.MeshStandardMaterial({
-    color: 0x2a2a2e,
-    roughness: 0.45,
-    metalness: 0.85
+    color: 0x353841,
+    roughness: 0.52,
+    metalness: 0.88,
+    envMapIntensity: 0.9
   })
+  const boltHeadGeo = new THREE.CylinderGeometry(0.018, 0.02, 0.012, 6)
+  const handlePinGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.05, 10)
+  const addBolt = (parent, x, y, z, rotationX = 0, rotationY = 0, rotationZ = 0, material = hardwareMat) => {
+    const bolt = new THREE.Mesh(boltHeadGeo, material)
+    bolt.position.set(x, y, z)
+    bolt.rotation.set(rotationX, rotationY, rotationZ)
+    bolt.castShadow = true
+    parent.add(bolt)
+  }
 
   // Hinge plates on lid (back edge, attach to lidPivot so they move with lid)
   const hingePlateGeo = new THREE.BoxGeometry(0.22, 0.025, 0.12)
@@ -1985,28 +2106,36 @@ function createFallbackCrate() {
   hingePlate1.position.set(-0.6, 0.125, 0.02)  // On lid surface, near back
   hingePlate1.castShadow = true
   lidPivot.add(hingePlate1)
+  addBolt(lidPivot, -0.67, 0.14, 0.02)
+  addBolt(lidPivot, -0.53, 0.14, 0.02)
   const hingePlate2 = new THREE.Mesh(hingePlateGeo, hardwareMat)
   hingePlate2.position.set(0.6, 0.125, 0.02)
   hingePlate2.castShadow = true
   lidPivot.add(hingePlate2)
+  addBolt(lidPivot, 0.53, 0.14, 0.02)
+  addBolt(lidPivot, 0.67, 0.14, 0.02)
 
   // Hinge plates on base (back edge)
   const baseHinge1 = new THREE.Mesh(hingePlateGeo, hardwareMat)
   baseHinge1.position.set(-0.6, 0.98, -0.68)
   baseHinge1.castShadow = true
   group.add(baseHinge1)
+  addBolt(group, -0.67, 0.995, -0.68)
+  addBolt(group, -0.53, 0.995, -0.68)
   const baseHinge2 = new THREE.Mesh(hingePlateGeo, hardwareMat)
   baseHinge2.position.set(0.6, 0.98, -0.68)
   baseHinge2.castShadow = true
   group.add(baseHinge2)
+  addBolt(group, 0.53, 0.995, -0.68)
+  addBolt(group, 0.67, 0.995, -0.68)
 
   // Hinge barrels (cylindrical pivot points)
   const barrelGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.08, 8)
-  const barrel1 = new THREE.Mesh(barrelGeo, hardwareMat)
+  const barrel1 = new THREE.Mesh(barrelGeo, metalMat)
   barrel1.position.set(-0.6, 1.0, -0.69)
   barrel1.rotation.x = Math.PI / 2
   group.add(barrel1)
-  const barrel2 = new THREE.Mesh(barrelGeo, hardwareMat)
+  const barrel2 = new THREE.Mesh(barrelGeo, metalMat)
   barrel2.position.set(0.6, 1.0, -0.69)
   barrel2.rotation.x = Math.PI / 2
   group.add(barrel2)
@@ -2017,9 +2146,11 @@ function createFallbackCrate() {
   hasp.position.set(0, 0.125, 1.35)  // Front of lid
   hasp.castShadow = true
   lidPivot.add(hasp)
+  addBolt(lidPivot, -0.035, 0.14, 1.35)
+  addBolt(lidPivot, 0.035, 0.14, 1.35)
   // Hasp loop
   const loopGeo = new THREE.TorusGeometry(0.035, 0.01, 6, 12, Math.PI)
-  const haspLoop = new THREE.Mesh(loopGeo, hardwareMat)
+  const haspLoop = new THREE.Mesh(loopGeo, metalMat)
   haspLoop.position.set(0, 0.11, 1.42)
   haspLoop.rotation.x = Math.PI / 2
   lidPivot.add(haspLoop)
@@ -2030,6 +2161,8 @@ function createFallbackCrate() {
   catchPlate.position.set(0, 0.92, 0.71)
   catchPlate.castShadow = true
   group.add(catchPlate)
+  addBolt(group, -0.045, 0.92, 0.735, Math.PI / 2)
+  addBolt(group, 0.045, 0.92, 0.735, Math.PI / 2)
 
   // Metal corner brackets (simplified)
   const bracketGeo = new THREE.BoxGeometry(0.06, 0.2, 0.06)
@@ -2052,10 +2185,14 @@ function createFallbackCrate() {
   strap1.position.set(0, 0.35, 0.71)
   strap1.castShadow = true
   group.add(strap1)
+  addBolt(group, -1.05, 0.35, 0.742, Math.PI / 2)
+  addBolt(group, 1.05, 0.35, 0.742, Math.PI / 2)
   const strap2 = new THREE.Mesh(strapGeo, hardwareMat)
   strap2.position.set(0, 0.7, 0.71)
   strap2.castShadow = true
   group.add(strap2)
+  addBolt(group, -1.05, 0.7, 0.742, Math.PI / 2)
+  addBolt(group, 1.05, 0.7, 0.742, Math.PI / 2)
 
   // Emissive question mark material
   const qMarkMat = new THREE.MeshStandardMaterial({
@@ -2258,6 +2395,67 @@ function createFallbackCrate() {
   // Clear crack materials array for seam leak planes
   crateCrackMaterials = []
 
+  const seamShadowMat = new THREE.MeshBasicMaterial({
+    color: 0x140d07,
+    transparent: true,
+    opacity: 0.32,
+    depthTest: true,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  })
+  const lidSeamMat = new THREE.MeshBasicMaterial({
+    color: 0x1b120b,
+    transparent: true,
+    opacity: 0.36,
+    depthTest: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1
+  })
+
+  const seamShadowFront = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.42, 0.05),
+    seamShadowMat
+  )
+  seamShadowFront.position.set(0, 0.975, 0.686)
+  group.add(seamShadowFront)
+
+  const seamShadowBack = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.42, 0.05),
+    seamShadowMat
+  )
+  seamShadowBack.position.set(0, 0.975, -0.686)
+  group.add(seamShadowBack)
+
+  const seamShadowLeft = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.22, 0.05),
+    seamShadowMat
+  )
+  seamShadowLeft.position.set(-1.286, 0.975, 0)
+  seamShadowLeft.rotation.y = Math.PI / 2
+  group.add(seamShadowLeft)
+
+  const seamShadowRight = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.22, 0.05),
+    seamShadowMat
+  )
+  seamShadowRight.position.set(1.286, 0.975, 0)
+  seamShadowRight.rotation.y = Math.PI / 2
+  group.add(seamShadowRight)
+
+  for (let i = 1; i < lidPlankCount; i++) {
+    const seamX = -lidTotalWidth / 2 + lidPlankWidth * i
+    const lidSeam = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.018, 1.18),
+      lidSeamMat
+    )
+    lidSeam.rotation.x = -Math.PI / 2
+    lidSeam.position.set(seamX, 0.124, 0.7)
+    lidPivot.add(lidSeam)
+  }
+
   // Create seam leak material (thin bright strips)
   const createSeamLeakMaterial = () => {
     const mat = new THREE.MeshBasicMaterial({
@@ -2353,11 +2551,35 @@ function createFallbackCrate() {
   const leftHandle = new THREE.Mesh(handleGeo, ropeMat)
   leftHandle.rotation.z = Math.PI / 2
   leftHandle.position.set(-1.02, 0.5, 0)
+  leftHandle.castShadow = true
+  leftHandle.receiveShadow = true
   group.add(leftHandle)
+  const leftHandlePinTop = new THREE.Mesh(handlePinGeo, metalMat)
+  leftHandlePinTop.rotation.z = Math.PI / 2
+  leftHandlePinTop.position.set(-1.02, 0.64, 0)
+  leftHandlePinTop.castShadow = true
+  group.add(leftHandlePinTop)
+  const leftHandlePinBottom = new THREE.Mesh(handlePinGeo, metalMat)
+  leftHandlePinBottom.rotation.z = Math.PI / 2
+  leftHandlePinBottom.position.set(-1.02, 0.36, 0)
+  leftHandlePinBottom.castShadow = true
+  group.add(leftHandlePinBottom)
   const rightHandle = new THREE.Mesh(handleGeo, ropeMat)
   rightHandle.rotation.z = -Math.PI / 2
   rightHandle.position.set(1.02, 0.5, 0)
+  rightHandle.castShadow = true
+  rightHandle.receiveShadow = true
   group.add(rightHandle)
+  const rightHandlePinTop = new THREE.Mesh(handlePinGeo, metalMat)
+  rightHandlePinTop.rotation.z = Math.PI / 2
+  rightHandlePinTop.position.set(1.02, 0.64, 0)
+  rightHandlePinTop.castShadow = true
+  group.add(rightHandlePinTop)
+  const rightHandlePinBottom = new THREE.Mesh(handlePinGeo, metalMat)
+  rightHandlePinBottom.rotation.z = Math.PI / 2
+  rightHandlePinBottom.position.set(1.02, 0.36, 0)
+  rightHandlePinBottom.castShadow = true
+  group.add(rightHandlePinBottom)
 
   group.add(lidPivot)
 
@@ -2438,7 +2660,7 @@ function createFallbackCrate() {
   const shadowMat = new THREE.MeshBasicMaterial({
     map: shadowTexture,
     transparent: true,
-    opacity: 0.25,
+    opacity: 0.31,
     depthWrite: false,
     depthTest: true,
     blending: THREE.MultiplyBlending,

@@ -5,6 +5,24 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- Physical Crate / Material Pass: Heavier Wood, Cleaner Hardware, Stronger Grounding
+
+**Type:** Surgical visual enhancement pass. `src/main.js`, `docs/runtime-test-checklist.md`.
+
+Retuned the fallback procedural crate so it reads denser and more tactile without changing its silhouette, state flow, or lid timing. The procedural wood texture now carries slightly deeper grain, darker board-edge wear, and mild stain variation. The crate surfaces also now use a few closely related wood material variants with offset grain so the planks do not read as a single flat repeat.
+
+Added low-risk physical detail to the crate body itself: subtle seam shadowing around the lid-body break, faint lid plank seam lines on the top surface, stronger but still restrained hardware materials, small bolt heads on the latch, straps, and hinges, plus pinned side handles so the rope reads attached instead of floating. The local contact shadow under the crate was also tightened to give the crate a little more weight on its supports.
+
+What was not changed:
+- Spin cadence
+- Lid-open behavior or state machine logic
+- Audio behavior and iframe unlock flow
+- Question mark behavior
+- Button visibility rules
+- Preview exact-hat checkout behavior
+- Atmosphere direction beyond crate readability support
+- Backend, Shopify, Flow, datasets, and the storefront wrapper
+
 ## 2026-03-27 -- Restore Room Background Readability After Atmosphere Pass
 
 **Type:** Surgical visual correction. `src/main.js`, `docs/runtime-test-checklist.md`.
