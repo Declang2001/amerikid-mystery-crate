@@ -5,6 +5,14 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- Open SFX Plays on Every Crate Open
+
+**Type:** Audio behavior fix. `src/main.js` `openCrate()` function.
+
+Moved `playSfx(openSfx, 1)` into `openCrate()` itself, after the `crateIsOpen` early return. This guarantees the open sound plays on every actual open (spin start, Spin Again re-open, Open button) and cannot double-fire (early return prevents it). Removed the redundant `playSfxAndWait(openSfx, 1)` from the `startSpin()` Promise.all call site.
+
+---
+
 ## 2026-03-27 -- Button Visibility Gated by Path and Spin Availability
 
 **Type:** UI state logic fix. `src/main.js` `updateControls()` function.

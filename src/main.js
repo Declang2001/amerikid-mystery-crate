@@ -921,6 +921,7 @@ function animateLidTo(targetAngle, duration = 900) {
 
 function openCrate(durationMs) {
   if (crateIsOpen) return Promise.resolve()
+  playSfx(openSfx, 1)
   if (usingFallback) {
     return animateLidTo(fallbackOpenAngle, durationMs || 800).then(() => {
       crateIsOpen = true
@@ -1045,17 +1046,14 @@ async function startSpin() {
     await closeCrate()
   }
 
-  // Now run the open sequence: sync open SFX with lid animation, then pause
+  // Now run the open sequence: open SFX plays inside openCrate(), then pause
   setState(STATES.OPENING)
   await ensureAudioReady(openSfx)
   // Fallback to 800ms if audio failed to load or duration unavailable
   const openMs = isFinite(openSfx.duration) && openSfx.duration > 0
     ? Math.max(300, Math.min(6000, openSfx.duration * 1000))
     : 800
-  await Promise.all([
-    playSfxAndWait(openSfx, 1),
-    openCrate(openMs)
-  ])
+  await openCrate(openMs)
   await delay(POST_OPEN_PAUSE_MS)
 
   // Pre-select winner before spin starts
