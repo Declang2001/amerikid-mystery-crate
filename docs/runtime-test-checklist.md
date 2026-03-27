@@ -33,6 +33,8 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Spin audio plays during spin
 - [ ] Open SFX plays on every crate open (spin start, Spin Again re-open, Open button)
 - [ ] Close SFX plays on every crate close (Spin Again, Save Result, Proceed to Checkout, Close button)
+- [ ] Claim SFX plays on every finalize action (Save Result on purchased path, Proceed to Checkout on preview path)
+- [ ] Claim SFX does not double-play on rapid clicks (state guard blocks re-entry)
 - [ ] Audio stops cleanly when spin ends (no overlap or echo)
 - [ ] **Iframe test:** "Tap to enable sound" overlay appears in iframe context
 - [ ] **Iframe test:** Tapping overlay unlocks audio successfully

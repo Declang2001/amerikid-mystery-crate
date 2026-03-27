@@ -5,6 +5,14 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- Claim SFX Audit: Confirmed on All Finalize Paths
+
+**Type:** Audio behavior audit. `src/main.js` `claimBtn` click handler.
+
+Audited all finalize/forward-action paths. Both the purchased path ("Save Result") and preview path ("Proceed to Checkout") already call `playSfx(claimSfx, 1)` before `setState(STATES.CLAIMING)`. No code change was needed. Duplicate playback is prevented by the state guard at the top of the handler: after the first click, `setState(STATES.CLAIMING)` runs synchronously, so any second click sees CLAIMING and exits early. The purchased path has an additional `finalizeInProgress` flag guard. Added explicit checklist items to `docs/runtime-test-checklist.md` to lock this behavior going forward.
+
+---
+
 ## 2026-03-27 -- Open SFX Plays on Every Crate Open
 
 **Type:** Audio behavior fix. `src/main.js` `openCrate()` function.
