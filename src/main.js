@@ -619,9 +619,13 @@ let autoCloseTimerId = null
 
 const BACKGROUND_URL = '/room.png'
 const BG_Y_ROT = -0.6
+const SCENE_FOG_COLOR = '#05060d'
+const SCENE_FOG_NEAR = 8
+const SCENE_FOG_FAR = 24
 
 const scene = new THREE.Scene()
-scene.background = new THREE.Color('#0b0c10')
+scene.background = new THREE.Color(SCENE_FOG_COLOR)
+scene.fog = new THREE.Fog(SCENE_FOG_COLOR, SCENE_FOG_NEAR, SCENE_FOG_FAR)
 
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100)
 camera.position.set(0, 4.0, 6.0)
@@ -669,11 +673,11 @@ textureLoader.load(
   }
 )
 
-const ambient = new THREE.AmbientLight(0xffffff, 0.8)
+const ambient = new THREE.AmbientLight(0xb8c6e3, 0.38)
 scene.add(ambient)
 
-const keyLight = new THREE.DirectionalLight(0xffffff, 1.1)
-keyLight.position.set(4, 6, 3)
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.18)
+keyLight.position.set(4.6, 6.6, 4.2)
 keyLight.castShadow = true
 keyLight.shadow.mapSize.width = 2048
 keyLight.shadow.mapSize.height = 2048
@@ -685,13 +689,13 @@ keyLight.shadow.camera.near = 0.5
 keyLight.shadow.camera.far = 15
 scene.add(keyLight)
 
-const fillLight = new THREE.DirectionalLight(0x7aa8ff, 0.6)
-fillLight.position.set(-4, 2, -3)
+const fillLight = new THREE.DirectionalLight(0x6f95ff, 0.72)
+fillLight.position.set(-5.2, 3.1, -2.2)
 scene.add(fillLight)
 
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(15, 15),
-  new THREE.ShadowMaterial({ opacity: 0.35 })
+  new THREE.ShadowMaterial({ opacity: 0.42 })
 )
 floor.rotation.x = -Math.PI / 2
 floor.position.y = -0.01

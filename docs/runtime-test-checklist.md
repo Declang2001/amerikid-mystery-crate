@@ -130,6 +130,15 @@ Each item should be tested manually unless automated tests exist.
 
 ---
 
+## 11. Atmosphere Pass
+
+- [ ] Crate reads darker and moodier, but the wood, lid, and winner hat remain clearly readable
+- [ ] Subtle fog deepens the room without obscuring the crate, hat reveal, or Press X prompt
+- [ ] Vignette darkens the screen edges without covering button text, result UI, or causing banding on mobile
+- [ ] Crate remains the visual focal point on both desktop and mobile iframe layouts
+
+---
+
 ## Notes
 
 - Items marked with **Iframe test** or **iOS Safari test** require testing in the actual

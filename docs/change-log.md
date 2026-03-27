@@ -5,6 +5,26 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- Atmosphere Pass: Moodier Lighting, Subtle Fog, Safe Vignette
+
+**Type:** Focused visual enhancement pass. `src/main.js`, `src/style.css`, docs updates.
+
+Retuned the scene atmosphere without touching crate logic or checkout behavior. Ambient light was lowered and cooled so the crate reads with more depth, the key light was nudged brighter and more forward to keep the crate legible, and the existing cool fill was strengthened and repositioned to preserve dimensional contrast. Added a subtle linear scene fog in `src/main.js` so the room falls off darker behind the crate. Increased the floor shadow receiver opacity slightly to anchor the crate without changing the crate asset itself.
+
+Added a lightweight CSS-only atmosphere layer in `src/style.css` using gradient overlays only. `#scene-root::before` adds a restrained central stage glow and upper-room darkening, while `#scene-root::after` adds a soft vignette. No post-processing, bloom, particles, or heavy runtime effects were introduced.
+
+What was not changed:
+- Spin cadence
+- Hat reveal height
+- Crate state machine
+- Button visibility rules
+- Audio behavior and iframe unlock flow
+- Preview exact-hat checkout implementation
+- Purchased entitlement / finalize logic
+- Procedural crate construction and Shopify wrapper
+
+---
+
 ## 2026-03-27 -- Preview Checkout Uses Exact Shopify Hat Variants
 
 **Type:** Variant mapping + preview forward-action fix. `src/hats.js`, `src/main.js`, docs updates.
