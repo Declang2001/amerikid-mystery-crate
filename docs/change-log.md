@@ -5,6 +5,14 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- Lid Question Marks Stay Visible During Open
+
+**Type:** Visual fix. `src/main.js` animate loop + question mark materials.
+
+The glowing question marks on the lid were explicitly hidden every frame during OPENING, SPINNING, and WINNER_SELECTED states. That hide rule existed because the materials used `depthTest: false`, which caused them to render on top of the hat display (bleed-through). Fix: changed both question mark materials (`qDecalMat` and `questionMarkGlowMat`) from `depthTest: false` to `depthTest: true`, then simplified the visibility rule to `currentState !== STATES.CLAIMED`. The question marks now stay visible on the lid as it opens and throughout the spin, while the depth buffer naturally prevents them from drawing over the hat.
+
+---
+
 ## 2026-03-27 -- Claim SFX Audit: Confirmed on All Finalize Paths
 
 **Type:** Audio behavior audit. `src/main.js` `claimBtn` click handler.

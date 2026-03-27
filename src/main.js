@@ -2132,7 +2132,7 @@ function createFallbackCrate() {
     map: qTexture,
     transparent: true,
     toneMapped: false,
-    depthTest: false,
+    depthTest: true,
     depthWrite: false,
     side: THREE.DoubleSide
   });
@@ -2165,7 +2165,7 @@ function createFallbackCrate() {
     opacity: 0,
     toneMapped: false,
     blending: THREE.AdditiveBlending,
-    depthTest: false,
+    depthTest: true,
     depthWrite: false,
     side: THREE.DoubleSide
   });
@@ -2512,9 +2512,9 @@ function animate() {
 
     hatDisplayRoot.position.y += (hatDisplayTargetY - hatDisplayRoot.position.y) * 0.1
 
-    // Question marks visible when crate is closed (READY, CLAIMED, or WINNER_PENDING_CLAIM)
-    // Hidden during OPENING, SPINNING, WINNER_SELECTED to avoid bleed-through
-    const shouldShowQMarks = currentState === STATES.READY || currentState === STATES.CLAIMED || currentState === STATES.WINNER_PENDING_CLAIM
+    // Question marks visible on the lid in all states except CLAIMED (crate closed after finalize)
+    // depthTest: true on both materials prevents bleed-through over the hat display
+    const shouldShowQMarks = currentState !== STATES.CLAIMED
     setQuestionMarksVisible(shouldShowQMarks)
 
     hatDisplay3D.lookAt(camera.position)
