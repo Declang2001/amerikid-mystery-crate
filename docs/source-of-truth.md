@@ -1,7 +1,7 @@
 # Source of Truth
 
-> Last synced: 2026-03-26
-> Status: Entitlement model implemented, purchased flow corrected, 15-hat pool wired.
+> Last synced: 2026-03-27
+> Status: Entitlement model implemented, purchased flow corrected, 15-hat pool wired, exact preview checkout wired.
 
 This document is the authoritative working direction for the AmeriKid Mystery Crate launch.
 All implementation decisions should reference this file.
@@ -20,6 +20,11 @@ CLAUDE.md and README.md still reflect the older spin-era concept and have not be
 ### What the Customer Gets
 - 1 guaranteed shirt (size selected at purchase)
 - 1 mystery hat (revealed inside the crate experience)
+
+### Hidden Preview Checkout Product
+- Shopify now has a hidden mystery hat product with 15 variants, one exact variant per hat
+- Preview checkout uses that hidden product only
+- Purchased combo logic stays separate and unchanged in this pass
 
 ### Shopify Product Listings (Planned: 3)
 1. **The shirt** (standalone listing)
@@ -52,6 +57,7 @@ CLAUDE.md and README.md still reflect the older spin-era concept and have not be
 - Customer gets **1 preview spin**
 - Preview spin is non-binding (no durable persistence needed)
 - After preview result, only "Proceed to Checkout" is shown (no Spin Again, no generic spin button)
+- Clicking "Proceed to Checkout" sends the user to Shopify checkout for the exact matching revealed hat variant using a cart permalink (`/cart/{variant_id}:1`)
 - Refresh loophole on preview path is acceptable for launch
 - Preview result does not need reservation-safe logic
 
@@ -63,6 +69,7 @@ CLAUDE.md and README.md still reflect the older spin-era concept and have not be
 - 1 mainline hat: **Zombie Slayer OG** (`CF-ZS-OG`, file: `ZOMBIE SLAYER OG FRONT.png`)
 - 7 named custom hats: Cross Red, Kinder, Mountain Rush, Pink Panther, Skittles Black, Skittles Red, Studded Melon
 - 7 numbered hats: Candy Facts 10 through 16
+- Each hat in `src/hats.js` includes `shopifyVariantId` for exact preview checkout routing
 - All hat PNGs live in `public/hats/`
 - Old placeholder files (`hat1.png` through `hat5.png`) are still in `public/hats/` but no longer referenced by code
 - Exact rarity weighting: **provisional, not locked** (all weights currently 1)
@@ -142,6 +149,7 @@ The crate must durably persist the final purchased hat result.
 | Shopify Flow tied to old $20 spin product | Stale: must be rewired to combo product |
 | Combo product does not exist in Shopify admin | Missing |
 | App scopes may be too narrow for metafields | Unknown: needs verification |
+| Preview checkout does not route to the exact revealed hat | Fixed: preview forward action now uses the matching `shopifyVariantId` cart permalink |
 | CLAUDE.md describes old spin-era architecture | Stale |
 | README.md describes old spin-era product | Stale |
 | Copy in `src/main.js` says "Log in to Claim", "Buy a Spin to Claim" | Stale |

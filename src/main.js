@@ -162,6 +162,60 @@ async function finalizeSpinResult(hatId) {
   }
 }
 
+function normalizeShopOrigin(value) {
+  if (!value) return null
+  try {
+    const parsed = value.includes('://') ? new URL(value) : new URL(`https://${value}`)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null
+    }
+    return parsed.origin
+  } catch (_) {
+    return null
+  }
+}
+
+function resolvePreviewCheckoutOrigin() {
+  const explicitOrigin = normalizeShopOrigin(
+    urlParams.get('shop_origin') || urlParams.get('shopify_origin') || urlParams.get('shop') || ''
+  )
+  if (explicitOrigin) {
+    return explicitOrigin
+  }
+
+  if (isEmbedded && document.referrer) {
+    return normalizeShopOrigin(document.referrer)
+  }
+
+  if (window.location.hostname.endsWith('.myshopify.com')) {
+    return window.location.origin
+  }
+
+  return null
+}
+
+function buildPreviewCheckoutUrl(hat) {
+  if (!hat?.shopifyVariantId) {
+    throw new Error('Missing Shopify variant mapping for the selected hat.')
+  }
+
+  const shopOrigin = resolvePreviewCheckoutOrigin()
+  if (!shopOrigin) {
+    throw new Error('Unable to determine the Shopify storefront for preview checkout.')
+  }
+
+  return new URL(`/cart/${hat.shopifyVariantId}:1`, shopOrigin).toString()
+}
+
+function redirectToCheckout(url) {
+  if (isEmbedded) {
+    window.top.location.href = url
+    return
+  }
+
+  window.location.href = url
+}
+
 function updateEligibilityUI() {
   if (!eligibilityStatus) return
 
@@ -1164,17 +1218,20 @@ claimBtn.addEventListener('click', async () => {
 
   // --- Preview path: redirect to checkout ---
   if (isPreviewMode) {
-    // Preview users cannot finalize. Navigate to checkout or product page.
-    // For now, close the crate and show CLAIMED state.
-    // The "Proceed to Checkout" button text is set in updateControls().
-    // Future: redirect to combo product URL.
+    let previewCheckoutUrl = ''
+    try {
+      previewCheckoutUrl = buildPreviewCheckoutUrl(spinWinnerHat)
+    } catch (err) {
+      alert(err.message || 'Unable to start preview checkout.')
+      return
+    }
+
     cancelAutoClose()
     playSfx(claimSfx, 1)
     setState(STATES.CLAIMING)
-    closeCrate().then(() => {
-      setState(STATES.CLAIMED)
-      setQuestionMarksVisible(true)
-    })
+    await closeCrate()
+    setQuestionMarksVisible(true)
+    redirectToCheckout(previewCheckoutUrl)
     return
   }
 

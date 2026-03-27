@@ -50,6 +50,8 @@ Each item should be tested manually unless automated tests exist.
 - [ ] User gets 1 preview spin
 - [ ] Preview spin plays full animation and reveals a hat
 - [ ] After preview result, only "Proceed to Checkout" is visible (no Spin Again, no generic spin button)
+- [ ] Clicking "Proceed to Checkout" closes the crate, then redirects to Shopify using the exact revealed hat variant ID with quantity 1
+- [ ] Shopify checkout contains the exact revealed hat variant, not a generic mystery hat product or wrong variant
 - [ ] Preview result is NOT persisted to Shopify
 - [ ] Refreshing the page allows another preview spin (acceptable for launch)
 
@@ -102,6 +104,7 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Client Credentials Grant successfully mints a token
 - [ ] Token is used for customer read/write operations
 - [ ] Customer metafield (or tag) is written with correct hat ID after finalize
+- [ ] Preview checkout cart permalink uses the `shopifyVariantId` mapped to the revealed hat in `src/hats.js`
 - [ ] Shopify Flow correctly adds entitlement on combo purchase (requires Shopify admin test)
 
 ---

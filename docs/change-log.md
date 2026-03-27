@@ -5,6 +5,17 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- Preview Checkout Uses Exact Shopify Hat Variants
+
+**Type:** Variant mapping + preview forward-action fix. `src/hats.js`, `src/main.js`, docs updates.
+
+Added `shopifyVariantId` to all 15 hats in `src/hats.js` using the exact Shopify variant IDs from the hidden mystery hat product. Updated the preview-only "Proceed to Checkout" path in `src/main.js` so it now builds a Shopify cart permalink for the revealed hat (`/cart/{variant_id}:1`) and redirects there after the existing claim/close flow starts. Storefront origin is resolved from the iframe referrer in the Shopify wrapper, with query-param fallback support for `shop_origin`, `shopify_origin`, or `shop` if needed.
+
+What was not changed:
+- Purchased combo finalize/save logic
+- Spin cadence, hat reveal height, audio behavior, question mark behavior
+- Shopify storefront wrapper
+
 ## 2026-03-27 -- Lid Question Marks Visible in All States Including CLAIMED
 
 **Type:** Visual fix. `src/main.js` animate loop.
