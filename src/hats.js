@@ -1,20 +1,40 @@
 /**
- * Hat data for Mystery Crate
+ * Hat data for Mystery Crate -- 15-hat launch pool
  *
- * To add new hats:
- * 1. Drop PNG image in /public/hats/
- * 2. Add entry below with unique id, name, image path, and weight
+ * Each entry:
+ *   id       - Tag-safe unique ID (written to Shopify as crate_hat_won:<id>)
+ *   name     - Display name shown in the result panel
+ *   image    - Path to PNG in public/hats/ (served from root by Vite)
+ *   weight   - Relative drop probability (higher = more likely, normalized at runtime)
+ *   mainline - true only for the mainline hat (Zombie Slayer OG)
  *
- * Weight determines drop probability (higher = more likely)
- * All weights are normalized at runtime, so values are relative.
+ * To add or remove hats:
+ *   1. Drop/remove the PNG in public/hats/
+ *   2. Add/remove the entry below
+ *   3. Update api/_lib/allowed-hats.js to match (server-side validation)
+ *
+ * Weights are provisional and not locked. Adjust as needed before launch.
  */
 
 const hats = [
-  { id: 'ZS-01', name: 'Zombie Slayer ZS-01', image: '/hats/hat1.png', weight: 1 },
-  { id: 'ZS-02', name: 'Zombie Slayer ZS-02', image: '/hats/hat2.png', weight: 1 },
-  { id: 'ZS-03', name: 'Zombie Slayer ZS-03', image: '/hats/hat3.png', weight: 1 },
-  { id: 'ZS-04', name: 'Zombie Slayer ZS-04', image: '/hats/hat4.png', weight: 1 },
-  { id: 'ZS-05', name: 'Zombie Slayer ZS-05', image: '/hats/hat5.png', weight: 1 }
+  // --- Mainline hat ---
+  { id: 'CF-ZS-OG',          name: 'Zombie Slayer OG',  image: '/hats/ZOMBIE SLAYER OG FRONT.png',  weight: 1, mainline: true },
+
+  // --- Custom / 1-of-1 hats ---
+  { id: 'CF-CROSS-RED',      name: 'Cross Red',         image: '/hats/CROSS RED (CF).png',           weight: 1, mainline: false },
+  { id: 'CF-KINDER',         name: 'Kinder',            image: '/hats/KINDER (CF).png',              weight: 1, mainline: false },
+  { id: 'CF-MOUNTAIN-RUSH',  name: 'Mountain Rush',     image: '/hats/MOUNTAIN RUSH (CF).png',       weight: 1, mainline: false },
+  { id: 'CF-PINK-PANTHER',   name: 'Pink Panther',      image: '/hats/PINK PANTHER (CF).png',        weight: 1, mainline: false },
+  { id: 'CF-SKITTLES-BLACK', name: 'Skittles Black',    image: '/hats/SKITTLES BLACK (CF).png',      weight: 1, mainline: false },
+  { id: 'CF-SKITTLES-RED',   name: 'Skittles Red',      image: '/hats/SKITTLES RED (CF).png',        weight: 1, mainline: false },
+  { id: 'CF-STUDDED-MELON',  name: 'Studded Melon',     image: '/hats/STUDDED MELON (CF).png',       weight: 1, mainline: false },
+  { id: 'CF-10',             name: 'Candy Facts 10',    image: '/hats/CANDYFACTSHAT-10-1.png',       weight: 1, mainline: false },
+  { id: 'CF-11',             name: 'Candy Facts 11',    image: '/hats/CANDYFACTSHAT-11-1.png',       weight: 1, mainline: false },
+  { id: 'CF-12',             name: 'Candy Facts 12',    image: '/hats/CANDYFACTSHAT-12-1.png',       weight: 1, mainline: false },
+  { id: 'CF-13',             name: 'Candy Facts 13',    image: '/hats/CANDYFACTSHAT-13-1.png',       weight: 1, mainline: false },
+  { id: 'CF-14',             name: 'Candy Facts 14',    image: '/hats/CANDYFACTSHAT-14-1.png',       weight: 1, mainline: false },
+  { id: 'CF-15',             name: 'Candy Facts 15',    image: '/hats/CANDYFACTSHAT-15-1.png',       weight: 1, mainline: false },
+  { id: 'CF-16',             name: 'Candy Facts 16',    image: '/hats/CANDYFACTSHAT-16-1.png',       weight: 1, mainline: false }
 ]
 
 /**

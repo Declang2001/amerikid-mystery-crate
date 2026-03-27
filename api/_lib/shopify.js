@@ -1,6 +1,12 @@
 /**
- * Shopify Admin API helper for tag-based eligibility
+ * Shopify Admin API helper for tag-based entitlement and hat persistence
  * Uses Client Credentials Grant for auto-minting access tokens
+ *
+ * Tag conventions:
+ *   crate_spins:N        -- numeric purchased spin count (e.g., crate_spins:2)
+ *   crate_hat_won:HAT-ID -- durably persisted winning hat (e.g., crate_hat_won:ZS-03)
+ *
+ * Legacy tags (spin_ready, spin_in_progress) are ignored but not removed automatically.
  */
 
 const SHOP_DOMAIN = process.env.SHOPIFY_SHOP_DOMAIN
@@ -8,8 +14,8 @@ const CLIENT_ID = process.env.SHOPIFY_CLIENT_ID
 const CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET
 const API_VERSION = process.env.SHOPIFY_API_VERSION || '2024-10'
 
-const TAG_SPIN_READY = 'spin_ready'
-const TAG_SPIN_IN_PROGRESS = 'spin_in_progress'
+const TAG_PREFIX_SPINS = 'crate_spins:'
+const TAG_PREFIX_HAT_WON = 'crate_hat_won:'
 
 // Module-scope token cache
 let cachedToken = null
@@ -49,13 +55,12 @@ async function getAccessToken() {
 
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`Shopify OAuth error ${res.status}: ${text}`)
+    throw new Error(`Shopify token error ${res.status}: ${text}`)
   }
 
   const data = await res.json()
 
   // Cache the token
-  // Shopify returns expires_in in seconds; convert to ms and add to current time
   cachedToken = data.access_token
   const expiresInMs = (data.expires_in || 3600) * 1000
   cachedExpiresAt = Date.now() + expiresInMs
@@ -139,10 +144,58 @@ export async function updateCustomerTags(customerId, tags) {
   return true
 }
 
+// --- Tag Parsing Helpers ---
+
 /**
- * Check eligibility status for a customer
+ * Parse total purchased spins remaining from tags.
+ * Handles multiple crate_spins:N tags (sums them) for robustness.
+ * @param {string[]} tags
+ * @returns {number}
+ */
+function parseSpinsRemaining(tags) {
+  let total = 0
+  for (const tag of tags) {
+    if (tag.startsWith(TAG_PREFIX_SPINS)) {
+      const n = parseInt(tag.slice(TAG_PREFIX_SPINS.length), 10)
+      if (Number.isFinite(n) && n > 0) {
+        total += n
+      }
+    }
+  }
+  return total
+}
+
+/**
+ * Parse the most recent hat_won tag value.
+ * @param {string[]} tags
+ * @returns {string | null}
+ */
+function parseHatWon(tags) {
+  for (const tag of tags) {
+    if (tag.startsWith(TAG_PREFIX_HAT_WON)) {
+      const hatId = tag.slice(TAG_PREFIX_HAT_WON.length)
+      if (hatId.length > 0) return hatId
+    }
+  }
+  return null
+}
+
+/**
+ * Remove all crate_spins:* tags from a tag array
+ * @param {string[]} tags
+ * @returns {string[]}
+ */
+function removeSpinTags(tags) {
+  return tags.filter(t => !t.startsWith(TAG_PREFIX_SPINS))
+}
+
+// --- Public API Functions ---
+
+/**
+ * Check eligibility status for a customer.
+ * Returns numeric spin count and any previously won hat.
  * @param {string} customerId
- * @returns {Promise<{logged_in: boolean, ready: boolean, in_progress: boolean, tags: string[]}>}
+ * @returns {Promise<{logged_in: boolean, spins_remaining: number, hat_won: string|null, tags: string[]}>}
  */
 export async function checkEligibility(customerId) {
   const customer = await getCustomer(customerId)
@@ -150,24 +203,26 @@ export async function checkEligibility(customerId) {
   if (!customer) {
     return {
       logged_in: false,
-      ready: false,
-      in_progress: false,
+      spins_remaining: 0,
+      hat_won: null,
       tags: []
     }
   }
 
   return {
     logged_in: true,
-    ready: customer.tags.includes(TAG_SPIN_READY),
-    in_progress: customer.tags.includes(TAG_SPIN_IN_PROGRESS),
+    spins_remaining: parseSpinsRemaining(customer.tags),
+    hat_won: parseHatWon(customer.tags),
     tags: customer.tags
   }
 }
 
 /**
- * Consume a spin: remove spin_ready, add spin_in_progress
+ * Consume one purchased spin: decrement the crate_spins:N tag by 1.
+ * If spins_remaining is 1, the tag is removed entirely.
+ * If spins_remaining is >1, the tag is replaced with crate_spins:(N-1).
  * @param {string} customerId
- * @returns {Promise<{ok: boolean, reason?: string}>}
+ * @returns {Promise<{ok: boolean, spins_remaining?: number, reason?: string}>}
  */
 export async function consumeSpin(customerId) {
   const customer = await getCustomer(customerId)
@@ -176,46 +231,57 @@ export async function consumeSpin(customerId) {
     return { ok: false, reason: 'Customer not found' }
   }
 
-  if (!customer.tags.includes(TAG_SPIN_READY)) {
-    return { ok: false, reason: 'No spin_ready tag present' }
+  const spinsRemaining = parseSpinsRemaining(customer.tags)
+
+  if (spinsRemaining <= 0) {
+    return { ok: false, reason: 'No purchased spins remaining' }
   }
 
-  if (customer.tags.includes(TAG_SPIN_IN_PROGRESS)) {
-    return { ok: false, reason: 'Spin already in progress' }
+  // Build new tags: remove all spin tags, add decremented count if > 1
+  const baseTags = removeSpinTags(customer.tags)
+  const newCount = spinsRemaining - 1
+  if (newCount > 0) {
+    baseTags.push(`${TAG_PREFIX_SPINS}${newCount}`)
   }
 
-  // Build new tags: remove spin_ready, add spin_in_progress
-  const newTags = customer.tags
-    .filter(t => t !== TAG_SPIN_READY)
-    .concat(TAG_SPIN_IN_PROGRESS)
+  await updateCustomerTags(customerId, baseTags)
 
-  await updateCustomerTags(customerId, newTags)
-
-  return { ok: true }
+  return { ok: true, spins_remaining: newCount }
 }
 
 /**
- * Claim a spin: remove spin_in_progress
+ * Finalize the spin result: write the winning hat ID as a durable tag.
+ * Also removes all remaining spin tags so no further spins are possible.
+ * Rejects if a hat has already been finalized (no overwrite).
  * @param {string} customerId
+ * @param {string} hatId - The hat ID to persist (e.g., "ZS-03")
  * @returns {Promise<{ok: boolean, reason?: string}>}
  */
-export async function claimSpin(customerId) {
+export async function finalizeResult(customerId, hatId) {
+  if (!hatId || typeof hatId !== 'string' || hatId.length === 0) {
+    return { ok: false, reason: 'Missing or invalid hat_id' }
+  }
+
   const customer = await getCustomer(customerId)
 
   if (!customer) {
     return { ok: false, reason: 'Customer not found' }
   }
 
-  if (!customer.tags.includes(TAG_SPIN_IN_PROGRESS)) {
-    return { ok: false, reason: 'No spin_in_progress tag present' }
+  // Reject if a hat has already been finalized
+  const existingHat = parseHatWon(customer.tags)
+  if (existingHat) {
+    return { ok: false, reason: 'Hat already finalized' }
   }
 
-  // Build new tags: remove spin_in_progress
-  const newTags = customer.tags.filter(t => t !== TAG_SPIN_IN_PROGRESS)
+  // Remove all spin tags (no more spins after finalize) and any stale hat_won tags
+  const baseTags = customer.tags
+    .filter(t => !t.startsWith(TAG_PREFIX_HAT_WON) && !t.startsWith(TAG_PREFIX_SPINS))
+  baseTags.push(`${TAG_PREFIX_HAT_WON}${hatId}`)
 
-  await updateCustomerTags(customerId, newTags)
+  await updateCustomerTags(customerId, baseTags)
 
   return { ok: true }
 }
 
-export { TAG_SPIN_READY, TAG_SPIN_IN_PROGRESS }
+export { TAG_PREFIX_SPINS, TAG_PREFIX_HAT_WON }

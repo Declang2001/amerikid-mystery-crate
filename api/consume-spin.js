@@ -3,7 +3,9 @@ import { consumeSpin } from './_lib/shopify.js'
 /**
  * POST /api/consume-spin
  * Body: { customer_id: "123" }
- * Consumes spin_ready tag and adds spin_in_progress
+ * Decrements the purchased spin count by 1.
+ *
+ * Response: { ok, spins_remaining } or { ok: false, reason }
  */
 export default async function handler(req, res) {
   // CORS headers for Shopify iframe embed

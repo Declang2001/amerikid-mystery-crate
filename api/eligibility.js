@@ -2,7 +2,10 @@ import { checkEligibility } from './_lib/shopify.js'
 
 /**
  * GET /api/eligibility?customer_id=123
- * Returns eligibility status for a customer
+ * Returns eligibility status for a customer.
+ *
+ * Response shape:
+ *   { logged_in, spins_remaining, hat_won, tags }
  */
 export default async function handler(req, res) {
   // CORS headers for Shopify iframe embed

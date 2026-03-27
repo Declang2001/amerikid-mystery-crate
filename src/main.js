@@ -8,23 +8,27 @@ const urlParams = new URLSearchParams(window.location.search)
 const customerId = urlParams.get('customer_id') || ''
 const demoOverride = urlParams.get('demo') === '1'
 
-// Demo mode: no customer_id OR demo=1 override
-const isDemoMode = !customerId || demoOverride
+// Preview mode: no customer_id OR demo=1 override
+// Preview users get 1 local non-binding spin. No API calls.
+const isPreviewMode = !customerId || demoOverride
 
-// Eligibility state (updated on load for real mode)
+// Eligibility state (updated on load for purchased mode)
 const eligibility = {
   loggedIn: false,
-  ready: false,
-  inProgress: false,
+  spinsRemaining: 0,
+  hatWon: null,
   checked: false,
   loading: false,
   error: null
 }
 
-// Track if current spin is a real (entitled) spin
-let isRealSpin = false
-// Prevent double-submit on claim
-let claimInProgress = false
+// Track if current spin is a purchased (entitled) spin
+let isPurchasedSpin = false
+// Track preview spins used this session (local only, resets on refresh)
+let previewSpinsUsed = 0
+const PREVIEW_SPIN_LIMIT = 1
+// Prevent double-submit on finalize
+let finalizeInProgress = false
 
 const app = document.querySelector('#app')
 
@@ -93,7 +97,7 @@ eligibilityStatus.style.cssText = `
 
 // --- Eligibility API Helpers ---
 async function fetchEligibility() {
-  if (isDemoMode) return
+  if (isPreviewMode) return
   eligibility.loading = true
   updateEligibilityUI()
   try {
@@ -101,8 +105,8 @@ async function fetchEligibility() {
     if (!res.ok) throw new Error('API error')
     const data = await res.json()
     eligibility.loggedIn = data.logged_in
-    eligibility.ready = data.ready
-    eligibility.inProgress = data.in_progress
+    eligibility.spinsRemaining = data.spins_remaining || 0
+    eligibility.hatWon = data.hat_won || null
     eligibility.checked = true
     eligibility.error = null
   } catch (err) {
@@ -123,8 +127,7 @@ async function consumeSpinEntitlement() {
     })
     const data = await res.json()
     if (data.ok) {
-      eligibility.ready = false
-      eligibility.inProgress = true
+      eligibility.spinsRemaining = data.spins_remaining || 0
       updateEligibilityUI()
       return true
     } else {
@@ -137,24 +140,24 @@ async function consumeSpinEntitlement() {
   }
 }
 
-async function claimSpinEntitlement() {
+async function finalizeSpinResult(hatId) {
   try {
-    const res = await fetch('/api/claim-spin', {
+    const res = await fetch('/api/finalize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customer_id: customerId })
+      body: JSON.stringify({ customer_id: customerId, hat_id: hatId })
     })
     const data = await res.json()
     if (data.ok) {
-      eligibility.inProgress = false
+      eligibility.hatWon = hatId
       updateEligibilityUI()
       return true
     } else {
-      console.error('Claim spin failed:', data.reason)
+      console.error('Finalize failed:', data.reason)
       return false
     }
   } catch (err) {
-    console.error('Claim spin error:', err)
+    console.error('Finalize error:', err)
     return false
   }
 }
@@ -162,8 +165,8 @@ async function claimSpinEntitlement() {
 function updateEligibilityUI() {
   if (!eligibilityStatus) return
 
-  if (isDemoMode) {
-    eligibilityStatus.textContent = 'Demo Mode'
+  if (isPreviewMode) {
+    eligibilityStatus.textContent = 'Preview Mode'
     eligibilityStatus.style.background = 'rgba(100, 100, 255, 0.2)'
     eligibilityStatus.style.color = '#aaf'
     return
@@ -184,21 +187,22 @@ function updateEligibilityUI() {
   }
 
   if (!eligibility.loggedIn) {
-    eligibilityStatus.textContent = 'Log in to claim prizes'
+    eligibilityStatus.textContent = 'Account not found'
     eligibilityStatus.style.background = 'rgba(255, 255, 100, 0.2)'
     eligibilityStatus.style.color = '#ffa'
     return
   }
 
-  if (eligibility.inProgress) {
-    eligibilityStatus.textContent = 'Claim your prize to continue'
-    eligibilityStatus.style.background = 'rgba(255, 200, 100, 0.2)'
-    eligibilityStatus.style.color = '#fda'
+  if (eligibility.hatWon) {
+    eligibilityStatus.textContent = `Hat selected: ${eligibility.hatWon}`
+    eligibilityStatus.style.background = 'rgba(100, 255, 200, 0.2)'
+    eligibilityStatus.style.color = '#afa'
     return
   }
 
-  if (eligibility.ready) {
-    eligibilityStatus.textContent = 'Ready to spin!'
+  if (eligibility.spinsRemaining > 0) {
+    const s = eligibility.spinsRemaining === 1 ? 'spin' : 'spins'
+    eligibilityStatus.textContent = `${eligibility.spinsRemaining} ${s} remaining`
     eligibilityStatus.style.background = 'rgba(100, 255, 100, 0.2)'
     eligibilityStatus.style.color = '#afa'
     return
@@ -209,8 +213,8 @@ function updateEligibilityUI() {
   eligibilityStatus.style.color = '#faa'
 }
 
-// Check eligibility on load (non-demo mode only)
-if (!isDemoMode && customerId) {
+// Check eligibility on load (purchased mode only)
+if (!isPreviewMode && customerId) {
   fetchEligibility()
 } else {
   updateEligibilityUI()
@@ -684,8 +688,8 @@ const CRATE_GLOW_RAMP_SPEED = 0.06 // ~300-500ms ramp at 60fps
 const SPIN_BASE_DURATION_MS = 7000          // baseline feel
 const AUDIO_SILENCE_TAIL_MS = 1800          // trims silent tail from audio end
 const SPIN_END_PADDING_MS = 80              // stop a hair before trimmed audio end
-const MIN_FULL_ROTATIONS = 12               // keep fast early feel
-const EXTRA_FULL_ROTATIONS_MAX = 6          // random extra rotations for variety
+const MIN_FULL_ROTATIONS = 2                // tuned for 15-hat pool (~30 steps)
+const EXTRA_FULL_ROTATIONS_MAX = 0          // no random extra rotations
 
 // Crack leakage materials (driven by glow intensity)
 let crateCrackMaterials = []
@@ -846,43 +850,49 @@ function updateControls() {
     STATES.CLAIMING,
     STATES.CLOSING
   ].includes(currentState)
-  
+
   const isResultView = [
-    STATES.WINNER_SELECTED, 
-    STATES.WINNER_PENDING_CLAIM, 
-    STATES.CLAIMING, 
+    STATES.WINNER_SELECTED,
+    STATES.WINNER_PENDING_CLAIM,
+    STATES.CLAIMING,
     STATES.CLAIMED,
     STATES.CLOSING
   ].includes(currentState)
 
   // --- Button Visibility ---
-  // In the result phase, we only show Spin and Claim (stacked)
   spinBtn.style.display = isResultView ? 'block' : 'none'
   claimBtn.style.display = (isResultView && currentState !== STATES.CLAIMED) ? 'block' : 'none'
-  
+
   // Hide internal utility buttons from the main result console
   closeBtn.style.display = 'none'
   openBtn.style.display = 'none'
 
-  // --- Spin Button Logic (Eligibility Driven) ---
-  const canSpinAgain = isDemoMode || (eligibility.ready && !eligibility.inProgress)
-  spinBtn.textContent = currentState === STATES.CLAIMED ? 'Spin Again' : 'Spin'
-  
-  // Grey out if not eligible
-  spinBtn.disabled = isLocked || !canSpinAgain
-
-  // --- Claim Button Logic ---
-  const canClaimState = currentState === STATES.WINNER_SELECTED || currentState === STATES.WINNER_PENDING_CLAIM
-
-  if (isDemoMode) {
-    claimBtn.disabled = true
-    claimBtn.textContent = 'Log in to Claim'
-  } else if (canClaimState && !eligibility.inProgress) {
-    claimBtn.disabled = true
-    claimBtn.textContent = 'Buy a Spin to Claim'
+  // --- Spin Button Logic ---
+  const isResultOrClaimed = [STATES.WINNER_SELECTED, STATES.WINNER_PENDING_CLAIM, STATES.CLAIMED].includes(currentState)
+  if (isPreviewMode) {
+    // Preview: allow if under local limit
+    const canPreviewSpin = previewSpinsUsed < PREVIEW_SPIN_LIMIT
+    spinBtn.textContent = currentState === STATES.CLAIMED ? 'Spin Again' : 'Spin'
+    spinBtn.disabled = isLocked || !canPreviewSpin
   } else {
-    claimBtn.disabled = isLocked || !canClaimState
-    claimBtn.textContent = 'Claim'
+    // Purchased: allow if spins remain and no hat already finalized
+    const canPurchasedSpin = eligibility.spinsRemaining > 0 && !eligibility.hatWon
+    spinBtn.textContent = isResultOrClaimed && canPurchasedSpin ? 'Spin Again' : 'Spin'
+    spinBtn.disabled = isLocked || !canPurchasedSpin
+  }
+
+  // --- Finalize Button Logic ---
+  const canFinalizeState = currentState === STATES.WINNER_SELECTED || currentState === STATES.WINNER_PENDING_CLAIM
+
+  if (isPreviewMode) {
+    // Preview: show "Proceed to Checkout" instead of finalize
+    claimBtn.disabled = false
+    claimBtn.textContent = 'Proceed to Checkout'
+    // Only show after result, hide if not in result view
+    claimBtn.style.display = (isResultView && currentState !== STATES.CLAIMED) ? 'block' : 'none'
+  } else {
+    claimBtn.disabled = isLocked || !canFinalizeState
+    claimBtn.textContent = 'Save Result'
   }
 }
 
@@ -982,56 +992,44 @@ let spinWinnerHatId = null
 let spinWinnerHatName = null
 
 /**
- * Piecewise easing for wheel-of-fortune effect
- * - Phase 1 (t < 0.70): Fast, nearly linear - covers ~90% of steps
- * - Phase 2 (t >= 0.70): Very hard ease-out for dramatic late slowdown
+ * Smooth ease-out for raffle/prize-wheel feel
+ * Starts fast, immediately begins decelerating, settles into final hat.
+ * Single curve eliminates the derivative jump the old piecewise approach had.
  */
 function spinEasing(t) {
-  const breakpoint = 0.70
-  const stepsCoveredInPhase1 = 0.90
-
-  if (t < breakpoint) {
-    // Phase 1: near-linear with tiny acceleration
-    const phase1Progress = t / breakpoint
-    return phase1Progress * stepsCoveredInPhase1
-  } else {
-    // Phase 2: very aggressive ease-out (power 5) for last ~30% of time
-    const phase2Progress = (t - breakpoint) / (1 - breakpoint)
-    const eased = 1 - Math.pow(1 - phase2Progress, 5)
-    return stepsCoveredInPhase1 + eased * (1 - stepsCoveredInPhase1)
-  }
+  return 1 - Math.pow(1 - t, 1.7)
 }
 
 async function startSpin() {
   // Ensure audio unlocked in same gesture that triggers spin
   ensureUnlockedFromGesture()
 
-  // Block spinning during active states or when winner is pending claim
-  if ([STATES.OPENING, STATES.SPINNING, STATES.CLAIMING, STATES.CLOSING, STATES.WINNER_PENDING_CLAIM].includes(currentState)) {
+  // Block spinning during active transition states only
+  // WINNER_PENDING_CLAIM is allowed so "Spin Again" works after auto-close
+  if ([STATES.OPENING, STATES.SPINNING, STATES.CLAIMING, STATES.CLOSING].includes(currentState)) {
     return
   }
 
   // --- Eligibility Check ---
-  // Determine if this is a real spin (logged in + ready) or demo spin
-  if (isDemoMode) {
-    // Demo mode: always allow, but cannot claim
-    isRealSpin = false
-  } else if (eligibility.inProgress) {
-    // Already have spin in progress - BLOCK spinning until claimed
-    // One purchase = one spin
-    return
-  } else if (eligibility.ready) {
-    // Real mode with eligibility: consume spin entitlement first
+  if (isPreviewMode) {
+    // Preview path: local-only, no API calls
+    if (previewSpinsUsed >= PREVIEW_SPIN_LIMIT) {
+      return
+    }
+    previewSpinsUsed++
+    isPurchasedSpin = false
+  } else {
+    // Purchased path: must have spins remaining
+    if (eligibility.spinsRemaining <= 0) {
+      return
+    }
+    // Consume one purchased spin via API
     const consumed = await consumeSpinEntitlement()
     if (!consumed) {
-      // Failed to consume - refresh eligibility and abort
       await fetchEligibility()
       return
     }
-    isRealSpin = true
-  } else {
-    // Not eligible for real spin - allow demo spin
-    isRealSpin = false
+    isPurchasedSpin = true
   }
 
   // Cancel any pending auto-close
@@ -1120,7 +1118,6 @@ async function startSpin() {
         showHat(currentHatIndex)
       }
       setState(STATES.WINNER_SELECTED)
-      scheduleAutoClose()
       spinAnimationId = null
     }
   }
@@ -1165,36 +1162,48 @@ claimBtn.addEventListener('click', async () => {
   // Ensure audio unlocked in same gesture
   ensureUnlockedFromGesture()
 
-  // Allow claim from both WINNER_SELECTED and WINNER_PENDING_CLAIM
+  // Allow finalize from both WINNER_SELECTED and WINNER_PENDING_CLAIM
   if (currentState !== STATES.WINNER_SELECTED && currentState !== STATES.WINNER_PENDING_CLAIM) return
 
+  // --- Preview path: redirect to checkout ---
+  if (isPreviewMode) {
+    // Preview users cannot finalize. Navigate to checkout or product page.
+    // For now, close the crate and show CLAIMED state.
+    // The "Proceed to Checkout" button text is set in updateControls().
+    // Future: redirect to combo product URL.
+    cancelAutoClose()
+    playSfx(claimSfx, 1)
+    setState(STATES.CLAIMING)
+    closeCrate().then(() => {
+      setState(STATES.CLAIMED)
+      setQuestionMarksVisible(true)
+    })
+    return
+  }
+
+  // --- Purchased path: finalize and persist ---
   // Prevent double-submit
-  if (claimInProgress) return
-  claimInProgress = true
+  if (finalizeInProgress) return
+  finalizeInProgress = true
 
-  // --- Eligibility Gate for Claim ---
-  if (isDemoMode) {
-    // Demo mode: cannot claim
-    alert('Demo mode: Log in and purchase a spin to claim prizes!')
-    claimInProgress = false
+  // Must have a winner hat ID to finalize
+  if (!spinWinnerHat || !spinWinnerHat.id) {
+    alert('No hat selected. Please spin first.')
+    finalizeInProgress = false
     return
   }
 
-  if (!eligibility.inProgress) {
-    // No spin in progress - cannot claim
-    alert('No spin in progress. Spin first to claim a prize!')
-    claimInProgress = false
-    return
-  }
-
-  // Call API to claim spin
-  const claimed = await claimSpinEntitlement()
-  if (!claimed) {
-    alert('Failed to claim prize. Please try again.')
-    claimInProgress = false
+  // Call API to persist the winning hat
+  const finalized = await finalizeSpinResult(spinWinnerHat.id)
+  if (!finalized) {
+    alert('Failed to save result. Please try again.')
+    finalizeInProgress = false
     await fetchEligibility()
     return
   }
+
+  // Server zeroes spins on finalize; sync local state
+  eligibility.spinsRemaining = 0
 
   cancelAutoClose()
   playSfx(claimSfx, 1)
@@ -1203,9 +1212,8 @@ claimBtn.addEventListener('click', async () => {
   closeCrate().then(() => {
     setState(STATES.CLAIMED)
     setQuestionMarksVisible(true)
-    claimInProgress = false
-    // Reset for next spin
-    isRealSpin = false
+    finalizeInProgress = false
+    isPurchasedSpin = false
   })
 })
 
@@ -1220,7 +1228,7 @@ function createHatDisplay3D() {
   bbox.getCenter(center)
 
   hatDisplayInsideY = bbox.min.y + 0.3
-  hatDisplayAboveY = bbox.max.y + 0.45
+  hatDisplayAboveY = bbox.max.y + 0.65
   hatDisplayTargetY = hatDisplayInsideY
 
   hatDisplayRoot = new THREE.Group()
@@ -2278,7 +2286,7 @@ function createFallbackCrate() {
       lidCrackMat
     )
     lidCrack.rotation.x = -Math.PI / 2  // Lay flat on lid
-    lidCrack.position.set(xOffset, 1.13, z)  // On lid top surface
+    lidCrack.position.set(xOffset, 0.13, z)  // On lid top surface (local to lidPivot)
     lidPivot.add(lidCrack)  // Attached to lid so it moves when opening
   })
 
