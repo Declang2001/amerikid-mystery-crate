@@ -5,6 +5,26 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- Restore Room Background Readability After Atmosphere Pass
+
+**Type:** Surgical visual correction. `src/main.js`, `docs/runtime-test-checklist.md`.
+
+Kept the darker lighting, fog, and vignette direction from the atmosphere pass, but stopped applying scene fog to the inside-out `room.png` background sphere itself. The previous fog settings were appropriate for scene depth, but because the room image lives on a large enclosing sphere, it was being blended heavily toward the fog color and reading as swallowed. The room image system remains intact and visible, while fog still shapes the foreground scene.
+
+Added an explicit runtime checklist item to confirm the background image stays readable behind the crate after atmosphere tuning.
+
+What was not changed:
+- Spin cadence
+- Hat reveal height
+- Crate-open behavior
+- Audio behavior and iframe unlock flow
+- Question mark behavior
+- Button visibility rules
+- Preview exact-hat checkout implementation
+- Backend, Shopify, Flow, datasets, and the storefront wrapper
+
+---
+
 ## 2026-03-27 -- Atmosphere Pass: Moodier Lighting, Subtle Fog, Safe Vignette
 
 **Type:** Focused visual enhancement pass. `src/main.js`, `src/style.css`, docs updates.

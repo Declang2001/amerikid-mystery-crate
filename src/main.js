@@ -656,7 +656,8 @@ textureLoader.load(
     texture.colorSpace = THREE.SRGBColorSpace
 
     const bgGeo = new THREE.SphereGeometry(60, 64, 32)
-    const bgMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide, toneMapped: false })
+    // Keep the room texture readable while scene fog still shapes the playable space.
+    const bgMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide, toneMapped: false, fog: false })
     const bgMesh = new THREE.Mesh(bgGeo, bgMat)
     bgMesh.rotation.y = BG_Y_ROT
     scene.add(bgMesh)
