@@ -32,7 +32,7 @@ Each item should be tested manually unless automated tests exist.
 
 - [ ] Spin audio plays during spin
 - [ ] Open SFX plays on crate open
-- [ ] Close SFX plays on crate close
+- [ ] Close SFX plays on every crate close (Spin Again, Save Result, Proceed to Checkout, Close button)
 - [ ] Audio stops cleanly when spin ends (no overlap or echo)
 - [ ] **Iframe test:** "Tap to enable sound" overlay appears in iframe context
 - [ ] **Iframe test:** Tapping overlay unlocks audio successfully

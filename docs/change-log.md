@@ -5,6 +5,14 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- Close SFX Plays on Every Crate Close
+
+**Type:** Audio behavior fix. `src/main.js` `closeCrate()` function.
+
+Moved `playSfx(closeSfx, 1)` into `closeCrate()` itself, after the `!crateIsOpen` early return. This guarantees the close sound plays on every actual close (Spin Again, Save Result, Proceed to Checkout, Close button) and cannot double-fire (early return prevents it). Removed the two redundant `playSfx(closeSfx)` calls at the closeBtn and scheduleAutoClose call sites.
+
+---
+
 ## 2026-03-26 -- Cadence Polish: Reduce Total Rotations (v2)
 
 **Type:** Two rotation constants changed. `src/main.js` lines ~691-692.

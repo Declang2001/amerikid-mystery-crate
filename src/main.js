@@ -800,7 +800,6 @@ function scheduleAutoClose() {
     autoCloseTimerId = null
     // Only auto-close if still in WINNER_SELECTED state
     if (currentState !== STATES.WINNER_SELECTED) return
-    playSfx(closeSfx, 1)
     setState(STATES.CLOSING)
     closeCrate().then(() => {
       // Transition to WINNER_PENDING_CLAIM so hat stays visible, claim remains enabled
@@ -937,6 +936,7 @@ function openCrate(durationMs) {
 
 function closeCrate() {
   if (!crateIsOpen) return Promise.resolve()
+  playSfx(closeSfx, 1)
   if (usingFallback) {
     return animateLidTo(0, 800).then(() => {
       crateIsOpen = false
@@ -1146,7 +1146,6 @@ closeBtn.addEventListener('click', () => {
     return
   }
   cancelAutoClose()
-  playSfx(closeSfx, 1)
   setState(STATES.CLOSING)
   closeCrate().then(() => {
     setState(STATES.READY)
