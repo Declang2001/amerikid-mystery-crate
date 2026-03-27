@@ -20,7 +20,7 @@ Each item should be tested manually unless automated tests exist.
 
 - [ ] Pressing X / clicking prompt / tapping canvas triggers spin
 - [ ] Crate lid opens with open SFX
-- [ ] Glowing question marks stay visible on the lid surface as it opens (no disappearing)
+- [ ] Glowing question marks stay visible on the lid surface in all states (open, spin, claimed)
 - [ ] Question marks do not bleed through or draw over the hat display
 - [ ] Hat display rises from inside crate
 - [ ] Hats cycle during spin with audio playing

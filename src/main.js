@@ -2512,10 +2512,8 @@ function animate() {
 
     hatDisplayRoot.position.y += (hatDisplayTargetY - hatDisplayRoot.position.y) * 0.1
 
-    // Question marks visible on the lid in all states except CLAIMED (crate closed after finalize)
-    // depthTest: true on both materials prevents bleed-through over the hat display
-    const shouldShowQMarks = currentState !== STATES.CLAIMED
-    setQuestionMarksVisible(shouldShowQMarks)
+    // Question marks always visible on the lid; depthTest: true prevents bleed-through
+    setQuestionMarksVisible(true)
 
     hatDisplay3D.lookAt(camera.position)
     hatDisplayGlow.lookAt(camera.position)

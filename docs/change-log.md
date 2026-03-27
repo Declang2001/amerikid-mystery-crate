@@ -5,6 +5,14 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- Lid Question Marks Visible in All States Including CLAIMED
+
+**Type:** Visual fix. `src/main.js` animate loop.
+
+Removed the last remaining state-based hide condition (`currentState !== STATES.CLAIMED`). The animate loop now calls `setQuestionMarksVisible(true)` unconditionally every frame. The question marks stay on the lid in every state, including after finalize. The `depthTest: true` setting from the previous pass continues to prevent bleed-through over the hat display.
+
+---
+
 ## 2026-03-27 -- Lid Question Marks Stay Visible During Open
 
 **Type:** Visual fix. `src/main.js` animate loop + question mark materials.
