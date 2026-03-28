@@ -161,6 +161,8 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Crate feels more grounded through local shadowing without swallowing the cinder blocks or room background
 - [ ] Local contact shadow reads as support-aware weight on the cinder blocks instead of a generic soft oval
 - [ ] Support pockets feel natural and slightly irregular without looking like painted blobs on the block tops
+- [ ] Support blocks read as real hollow-core cinder blocks from the front three-quarter camera instead of solid boxes with fake top holes
+- [ ] Support block realism preserves the exact crate elevation and does not change the hat reveal height
 - [ ] Lid open timing and motion still match the accepted cadence after the material pass
 
 ---

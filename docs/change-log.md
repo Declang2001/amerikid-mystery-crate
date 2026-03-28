@@ -5,6 +5,23 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- Support Block Realism Pass: Hollow-Core Cinder Block Read Without Elevation Changes
+
+**Type:** Surgical support realism pass. `src/main.js`, `docs/runtime-test-checklist.md`.
+
+Rebuilt the fallback support blocks in `src/main.js` so they read like hollow-core cinder blocks from the current front three-quarter camera instead of solid boxes with shallow fake top holes. The previous version was one solid block mesh with two dark top inserts. The new version keeps the exact same outer dimensions, the exact same four-support footprint, the same rotations, and the same placement, but assembles each support from simple box pieces only: outer shell walls, front and back rails, a center web, and dark interior cavity treatment for the two cores.
+
+The support geometry still lives outside `crateRoot`, and `group.position.y = blockH` remains unchanged, so crate height and hat reveal height stay locked. The Tiny Realness contact shadow was left untouched because the support footprint did not move.
+
+What was not changed:
+- `blockW`, `blockH`, or `blockD`
+- Support count, placement, or rotation
+- Crate height or hat reveal height
+- Contact-shadow logic or footprint alignment
+- Camera behavior, cadence, crate-open behavior, or state machine behavior
+- Audio behavior and iframe unlock flow
+- Button visibility rules, preview exact-hat checkout behavior, reveal ritual direction, question mark magic direction, UI polish direction, backend, Shopify, Flow, datasets, or the storefront wrapper
+
 ## 2026-03-27 -- Tiny Realness Pass: Support-Aware Contact Shadow Only
 
 **Type:** Surgical grounding pass. `src/main.js`, `docs/runtime-test-checklist.md`.

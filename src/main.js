@@ -2799,27 +2799,79 @@ function createFallbackCrate() {
 
   // Standard cinder block dimensions (scaled down)
   const blockW = 0.5, blockH = 0.25, blockD = 0.3
-  const cinderBlockGeo = new THREE.BoxGeometry(blockW, blockH, blockD)
+  const blockSideThickness = 0.06
+  const blockFaceThickness = 0.04
+  const blockCapThickness = 0.045
+  const blockWebThickness = 0.05
+  const cavityWidth = (blockW - blockSideThickness * 2 - blockWebThickness) / 2
+  const cavityHeight = blockH - blockCapThickness * 2
+  const cavityDepth = blockD - blockFaceThickness * 2
+
+  const sideWallGeo = new THREE.BoxGeometry(blockSideThickness, blockH, blockD)
+  const centerWebGeo = new THREE.BoxGeometry(blockWebThickness, blockH, blockD)
+  const faceRailGeo = new THREE.BoxGeometry(blockW - blockSideThickness * 2, blockCapThickness, blockFaceThickness)
+  const cavityFloorGeo = new THREE.BoxGeometry(
+    cavityWidth * 0.9,
+    Math.max(0.012, blockCapThickness * 0.3),
+    cavityDepth * 0.82
+  )
+  const cavityBackGeo = new THREE.BoxGeometry(
+    cavityWidth * 0.9,
+    cavityHeight * 0.82,
+    Math.max(0.016, blockFaceThickness * 0.55)
+  )
+  const cavityShadowMat = new THREE.MeshBasicMaterial({
+    color: 0x171717,
+    transparent: true,
+    opacity: 0.9
+  })
+
+  const createBlockPiece = (geometry, material, x, y, z, options = {}) => {
+    const mesh = new THREE.Mesh(geometry, material)
+    mesh.position.set(x, y, z)
+    mesh.castShadow = options.castShadow ?? true
+    mesh.receiveShadow = options.receiveShadow ?? true
+    return mesh
+  }
 
   // Create cinder block with holes
   const createCinderBlock = (x, z, rotY = 0) => {
     const blockGroup = new THREE.Group()
 
-    // Main block body
-    const block = new THREE.Mesh(cinderBlockGeo, concreteMat)
-    block.castShadow = true
-    block.receiveShadow = true
-    blockGroup.add(block)
+    // Outer shell walls with a real hollow-core read from the current camera angle.
+    blockGroup.add(createBlockPiece(sideWallGeo, concreteMat, -blockW / 2 + blockSideThickness / 2, 0, 0))
+    blockGroup.add(createBlockPiece(sideWallGeo, concreteMat, blockW / 2 - blockSideThickness / 2, 0, 0))
+    blockGroup.add(createBlockPiece(centerWebGeo, concreteMat, 0, 0, 0))
 
-    // Cut holes (dark insets on top)
-    const holeMat = new THREE.MeshBasicMaterial({ color: 0x1a1a1a })
-    const holeGeo = new THREE.BoxGeometry(blockW * 0.3, 0.02, blockD * 0.6)
-    const hole1 = new THREE.Mesh(holeGeo, holeMat)
-    hole1.position.set(-blockW * 0.25, blockH / 2, 0)
-    blockGroup.add(hole1)
-    const hole2 = new THREE.Mesh(holeGeo, holeMat)
-    hole2.position.set(blockW * 0.25, blockH / 2, 0)
-    blockGroup.add(hole2)
+    const frontRailZ = blockD / 2 - blockFaceThickness / 2
+    const backRailZ = -blockD / 2 + blockFaceThickness / 2
+    const topRailY = blockH / 2 - blockCapThickness / 2
+    const bottomRailY = -blockH / 2 + blockCapThickness / 2
+
+    blockGroup.add(createBlockPiece(faceRailGeo, concreteMat, 0, topRailY, frontRailZ))
+    blockGroup.add(createBlockPiece(faceRailGeo, concreteMat, 0, bottomRailY, frontRailZ))
+    blockGroup.add(createBlockPiece(faceRailGeo, concreteMat, 0, topRailY, backRailZ))
+    blockGroup.add(createBlockPiece(faceRailGeo, concreteMat, 0, bottomRailY, backRailZ))
+
+    // Dark cavity treatment keeps the openings reading deep without adding heavy geometry.
+    const cavityCenterOffset = blockW / 2 - blockSideThickness - cavityWidth / 2
+    const cavityFloorY = -blockH / 2 + blockCapThickness + cavityFloorGeo.parameters.height / 2
+    const cavityBackZ = -blockD / 2 + blockFaceThickness + cavityBackGeo.parameters.depth / 2
+
+    ;[-cavityCenterOffset, cavityCenterOffset].forEach((cavityX) => {
+      blockGroup.add(
+        createBlockPiece(cavityFloorGeo, cavityShadowMat, cavityX, cavityFloorY, 0, {
+          castShadow: false,
+          receiveShadow: false
+        })
+      )
+      blockGroup.add(
+        createBlockPiece(cavityBackGeo, cavityShadowMat, cavityX, 0, cavityBackZ, {
+          castShadow: false,
+          receiveShadow: false
+        })
+      )
+    })
 
     blockGroup.position.set(x, blockH / 2, z)
     blockGroup.rotation.y = rotY
