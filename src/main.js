@@ -44,11 +44,8 @@ app.innerHTML = `
       <div class="boot-black-screen">
         <div class="boot-copy boot-copy-black">
           <p class="boot-kicker">Dark Aether Uplink</p>
-          <h2 class="boot-title">Link To Breach Feed</h2>
-          <p id="bootSupportCopy" class="boot-support">
-            Syncing portal telemetry and chamber lock.
-          </p>
-          <button id="bootStartBtn" class="boot-cta" type="button" disabled>Buffering Feed...</button>
+          <h2 class="boot-title">Candy Facts Mystery Box</h2>
+          <button id="bootStartBtn" class="boot-cta" type="button" disabled>Loading...</button>
         </div>
       </div>
       <div class="boot-video-stage" aria-hidden="true">
@@ -75,7 +72,7 @@ app.innerHTML = `
         <div class="boot-idle-overlay">
           <div class="boot-idle-copy">
             <p class="boot-kicker">Dark Aether Feed</p>
-            <h2 class="boot-title boot-title-idle">Portal Standing By</h2>
+            <h2 class="boot-title boot-title-idle">Candy Facts Mystery Box</h2>
             <button id="bootEnterPortalBtn" class="boot-cta" type="button" disabled>Enter Portal</button>
           </div>
         </div>
@@ -128,7 +125,6 @@ const resultStatus = document.querySelector('#resultStatus')
 const bootLayer = document.querySelector('#bootLayer')
 const bootStartBtn = document.querySelector('#bootStartBtn')
 const bootEnterPortalBtn = document.querySelector('#bootEnterPortalBtn')
-const bootSupportCopy = document.querySelector('#bootSupportCopy')
 const bootIdleVideo = document.querySelector('#bootIdleVideo')
 const bootWalkVideo = document.querySelector('#bootWalkVideo')
 const animationCount = document.querySelector('#animationCount')
@@ -612,7 +608,11 @@ const BOOT_PHASES = {
   CRATE_VIEW: 'CRATE_VIEW'
 }
 
-const WALK_VIDEO_HANDOFF_THRESHOLD_S = null
+// Seconds before walk clip end to begin the boot-layer fade-out.
+// Computed dynamically from video duration in the loadedmetadata handler.
+const WALK_FADE_LEAD_S = 2.0
+let walkVideoFadeThreshold = null
+let walkFadeStarted = false
 
 let bootPhase = BOOT_PHASES.BLACK_SCREEN
 let sceneReady = false
@@ -622,7 +622,7 @@ const bootMediaReady = {
 }
 
 function updateBootPresentation() {
-  if (!bootLayer || !bootStartBtn || !bootSupportCopy || !bootEnterPortalBtn) return
+  if (!bootLayer || !bootStartBtn || !bootEnterPortalBtn) return
 
   bootLayer.classList.toggle('visible', bootPhase !== BOOT_PHASES.CRATE_VIEW)
   bootLayer.classList.toggle('boot-phase-black-screen', bootPhase === BOOT_PHASES.BLACK_SCREEN)
@@ -635,15 +635,10 @@ function updateBootPresentation() {
   bootEnterPortalBtn.disabled = !(bootPhase === BOOT_PHASES.IDLE_VIDEO && bootMediaReady.walk)
 
   if (bootPhase === BOOT_PHASES.BLACK_SCREEN) {
-    if (!sceneReady) {
-      bootSupportCopy.textContent = 'Syncing portal telemetry and chamber lock.'
-      bootStartBtn.textContent = 'Linking Chamber...'
-    } else if (!bootMediaReady.idle) {
-      bootSupportCopy.textContent = 'Portal feed acquired. Buffering first-person breach loop.'
-      bootStartBtn.textContent = 'Buffering Feed...'
+    if (!sceneReady || !bootMediaReady.idle) {
+      bootStartBtn.textContent = 'Loading...'
     } else {
-      bootSupportCopy.textContent = 'Use the first link command to unlock audio and bring up the live breach feed.'
-      bootStartBtn.textContent = 'Link Breach Feed'
+      bootStartBtn.textContent = 'Click To Enter'
     }
   }
 }
@@ -667,12 +662,34 @@ function pauseBootVideo(video, reset = false) {
 
 function finishBootVideoHandoff() {
   pauseBootVideo(bootWalkVideo, true)
+  walkFadeStarted = false
+  if (bootLayer) {
+    bootLayer.classList.remove('boot-fading')
+    bootLayer.style.opacity = ''
+  }
+  // Only reset intro state if the fade did not already start it
+  if (introStartTime === 0) {
+    introComplete = false
+    playerInRange = false
+    cameraTargetCurrent.copy(cameraTargetStart)
+    camera.lookAt(cameraTargetCurrent)
+  }
+  setBootPhase(BOOT_PHASES.CRATE_VIEW)
+}
+
+function beginWalkFade() {
+  if (walkFadeStarted) return
+  walkFadeStarted = true
+  // Start the crate intro underneath the fading video
   introStartTime = 0
   introComplete = false
   playerInRange = false
   cameraTargetCurrent.copy(cameraTargetStart)
   camera.lookAt(cameraTargetCurrent)
-  setBootPhase(BOOT_PHASES.CRATE_VIEW)
+  // Trigger CSS opacity fade on the boot layer
+  if (bootLayer) {
+    bootLayer.classList.add('boot-fading')
+  }
 }
 
 function handleBootMediaReady(key) {
@@ -699,7 +716,7 @@ async function startIdleVideo() {
   } catch (err) {
     pauseBootVideo(bootIdleVideo, true)
     setBootPhase(BOOT_PHASES.BLACK_SCREEN)
-    bootSupportCopy.textContent = 'Video start was blocked. Tap the link command again.'
+    bootStartBtn.textContent = 'Tap To Retry'
     audioState.lastError = err?.message || String(err)
   }
 }
@@ -709,6 +726,11 @@ async function startWalkVideo() {
 
   ensureUnlockedFromGesture()
   pauseBootVideo(bootIdleVideo, true)
+  walkFadeStarted = false
+  if (bootLayer) {
+    bootLayer.classList.remove('boot-fading')
+    bootLayer.style.opacity = ''
+  }
 
   try {
     bootWalkVideo.loop = false
@@ -725,9 +747,9 @@ async function startWalkVideo() {
 }
 
 function handleWalkVideoTimeUpdate() {
-  if (bootPhase !== BOOT_PHASES.WALK_VIDEO || WALK_VIDEO_HANDOFF_THRESHOLD_S == null || !bootWalkVideo) return
-  if (bootWalkVideo.currentTime >= WALK_VIDEO_HANDOFF_THRESHOLD_S) {
-    finishBootVideoHandoff()
+  if (bootPhase !== BOOT_PHASES.WALK_VIDEO || walkVideoFadeThreshold == null || !bootWalkVideo) return
+  if (bootWalkVideo.currentTime >= walkVideoFadeThreshold) {
+    beginWalkFade()
   }
 }
 
@@ -756,10 +778,23 @@ bootIdleVideo?.addEventListener('loadeddata', () => {
 
 bootWalkVideo?.addEventListener('loadeddata', () => {
   handleBootMediaReady('walk')
+  // Compute the fade threshold once duration is known
+  if (bootWalkVideo.duration && isFinite(bootWalkVideo.duration)) {
+    walkVideoFadeThreshold = Math.max(0, bootWalkVideo.duration - WALK_FADE_LEAD_S)
+  }
+})
+
+// Also try loadedmetadata in case loadeddata fires before duration is set on some browsers
+bootWalkVideo?.addEventListener('loadedmetadata', () => {
+  if (bootWalkVideo.duration && isFinite(bootWalkVideo.duration) && walkVideoFadeThreshold == null) {
+    walkVideoFadeThreshold = Math.max(0, bootWalkVideo.duration - WALK_FADE_LEAD_S)
+  }
 })
 
 bootWalkVideo?.addEventListener('ended', () => {
   if (bootPhase === BOOT_PHASES.WALK_VIDEO) {
+    // If the fade already started, let CSS transition finish visually,
+    // but still complete the handoff so the boot layer is fully removed.
     finishBootVideoHandoff()
   }
 })
@@ -3395,7 +3430,10 @@ function animate() {
   const time = clock.getElapsedTime()
   const winnerRevealImpulse = getWinnerRevealImpulse(performance.now())
 
-  if (bootPhase !== BOOT_PHASES.CRATE_VIEW) {
+  // Allow the crate intro to begin during the walk-video fade so the scene
+  // is already animating underneath the fading boot layer.
+  const crateIntroActive = bootPhase === BOOT_PHASES.CRATE_VIEW || walkFadeStarted
+  if (!crateIntroActive) {
     cameraTargetCurrent.copy(cameraTargetStart)
     camera.lookAt(cameraTargetCurrent)
   } else if (!introComplete) {

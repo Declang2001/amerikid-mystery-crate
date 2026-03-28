@@ -10,13 +10,20 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Page loads without JS errors in console
 - [ ] 3D crate renders (fallback or .glb)
 - [ ] Initial black screen appears before the crate arrival begins
-- [ ] Black-screen link button enables only after the scene is ready and the idle portal feed is ready enough to start cleanly
+- [ ] Black screen shows only: kicker "Dark Aether Uplink", title "Candy Facts Mystery Box", and one CTA button. No support/body copy.
+- [ ] Black-screen CTA reads "Click To Enter" when enabled, "Loading..." while scene/media loads
+- [ ] Black-screen CTA enables only after the scene is ready and the idle portal feed is ready enough to start cleanly
 - [ ] First click on the black-screen button unlocks audio and starts the fullscreen looping idle portal video
 - [ ] Idle portal video preserves its embedded audio and loops cleanly
+- [ ] Idle overlay shows: kicker "Dark Aether Feed", title "Candy Facts Mystery Box", button "Enter Portal"
 - [ ] "Enter Portal" appears only over the idle portal video
 - [ ] Idle video hard-cuts directly into the walk-in portal video with no fade
 - [ ] Walk-in portal video preserves its embedded audio
-- [ ] Walk-in portal video hands off into the existing crate intro on its natural end
+- [ ] Walk video fades out near its tail end (~2s before end) via boot-layer opacity transition
+- [ ] Crate scene and camera intro begin underneath during the walk video fade
+- [ ] No second portal reveal or flash occurs after the walk video
+- [ ] Walk video audio plays through the fade and is not cut early
+- [ ] Boot layer is fully removed after fade completes and video ends
 - [ ] Camera intro tilt completes (~1.5 seconds)
 - [ ] Idle bob begins after intro
 - [ ] Accepted camera arrival still lands on the same idle look-down READY view after the portal handoff

@@ -5,6 +5,24 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-28 -- Portal Copy Correction and Walk-Video Handoff Smoothing
+
+**Type:** Surgical copy fix and handoff fade. `src/main.js`, `src/style.css`, `docs/runtime-test-checklist.md`.
+
+Corrected the black-screen and idle-overlay copy to match owner direction. The black-screen title is now "Candy Facts Mystery Box", the CTA is "Click To Enter", and the support/body paragraph has been removed entirely. The idle-overlay title is now "Candy Facts Mystery Box" (was "Portal Standing By"). The kickers and idle "Enter Portal" button remain unchanged.
+
+Replaced the abrupt single-frame walk-video-to-crate cut with a duration-aware tail-end fade. The boot layer now receives a `boot-fading` CSS class ~2 seconds before the walk clip ends, triggering a 2-second opacity transition to zero. The crate camera intro begins underneath the fading video so the scene is already in motion when the video fully disappears. The `ended` event on the walk video still fires `finishBootVideoHandoff()` as a safety net to fully remove the boot layer. The fade threshold is computed dynamically from `bootWalkVideo.duration` so it adapts if the video file is re-cut.
+
+The idle-to-walk transition remains a hard cut with no fade. No second portal reveal was added. Walk video audio plays through the fade and is not cut early.
+
+What was not changed:
+- The crate `STATES` machine or `startSpin()` / result flow
+- Crate height, hat reveal height, or accepted camera and idle behavior after handoff
+- Spin cadence, crate-open behavior, audio behavior for the actual crate flow, question mark behavior, reveal ritual direction, question mark magic direction, UI polish direction, tiny realness direction, cinder block realism direction, visible support density direction, or COD realism-gap direction
+- Button visibility rules or preview exact-hat checkout behavior
+- Backend, Shopify, Flow, datasets, or the storefront wrapper
+- The idle-to-walk hard cut
+
 ## 2026-03-28 -- Media-Backed Portal Flow: Black Screen, Idle Feed, Walk Clip, Crate Handoff
 
 **Type:** Surgical portal presentation replacement. `src/main.js`, `src/style.css`, `docs/runtime-test-checklist.md`.

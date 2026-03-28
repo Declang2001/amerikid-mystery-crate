@@ -72,6 +72,13 @@ body {
   display: none;
   background: #000;
   pointer-events: none;
+  opacity: 1;
+}
+
+.boot-layer.boot-fading {
+  opacity: 0;
+  transition: opacity 2s ease-in;
+  pointer-events: none;
 }
 
 .boot-layer.visible {
