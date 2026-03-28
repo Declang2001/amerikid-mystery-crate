@@ -9,10 +9,16 @@ Each item should be tested manually unless automated tests exist.
 
 - [ ] Page loads without JS errors in console
 - [ ] 3D crate renders (fallback or .glb)
+- [ ] Start screen appears before the crate arrival begins
+- [ ] Start CTA enables only after the scene is ready
+- [ ] Portal transition plays before the existing crate intro and stays short enough for iframe/mobile use
 - [ ] Camera intro tilt completes (~1.5 seconds)
 - [ ] Idle bob begins after intro
+- [ ] Accepted camera arrival still lands on the same idle look-down READY view after the portal handoff
+- [ ] Press X prompt stays hidden until the portal transition and crate intro have both completed
 - [ ] Press X prompt appears after intro
 - [ ] Press X prompt is positioned on the crate front face, not floating
+- [ ] **Reduced motion test:** Portal transition shortens or simplifies when reduced motion is enabled
 
 ---
 

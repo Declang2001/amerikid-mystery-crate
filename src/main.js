@@ -40,6 +40,26 @@ const app = document.querySelector('#app')
 app.innerHTML = `
   <div id="scene-root">
     <canvas id="scene-canvas"></canvas>
+    <div id="bootLayer" class="boot-layer visible boot-phase-start-screen" aria-live="polite">
+      <div class="boot-start-screen">
+        <div class="boot-copy">
+          <p class="boot-kicker">Dark Aether Breach</p>
+          <h2 class="boot-title">Step Through The Portal</h2>
+          <p id="bootSupportCopy" class="boot-support">
+            First-person breach protocol. Tear through the barrier, hit the flash, and drop into the mystery crate chamber.
+          </p>
+          <button id="bootStartBtn" class="boot-cta" type="button" disabled>Stabilizing Portal...</button>
+        </div>
+      </div>
+      <div class="portal-transition" aria-hidden="true">
+        <div class="portal-barrier"></div>
+        <div class="portal-grid"></div>
+        <div class="portal-rift"></div>
+        <div class="portal-veil"></div>
+        <div class="portal-foreground-hint"></div>
+        <div class="portal-flash"></div>
+      </div>
+    </div>
     <div class="overlay">
       <div class="panel">
         <div class="panel-header">
@@ -84,6 +104,9 @@ const resultImage = document.querySelector('#resultImage')
 const resultLabel = document.querySelector('#resultLabel')
 const resultName = document.querySelector('#resultName')
 const resultStatus = document.querySelector('#resultStatus')
+const bootLayer = document.querySelector('#bootLayer')
+const bootStartBtn = document.querySelector('#bootStartBtn')
+const bootSupportCopy = document.querySelector('#bootSupportCopy')
 const animationCount = document.querySelector('#animationCount')
 const animationList = document.querySelector('#animationList')
 const errorBanner = document.querySelector('#errorBanner')
@@ -332,6 +355,8 @@ spinAudio.addEventListener('loadedmetadata', () => {
 // Debug mode: add ?debugAudio=1 to URL
 const debugAudio = urlParams.get('debugAudio') === '1'
 const isEmbedded = window.self !== window.top
+const reducedMotionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)') || null
+let prefersReducedMotion = reducedMotionQuery?.matches ?? false
 
 // Centralized audio state
 const audioState = {
@@ -555,6 +580,131 @@ audioLog('Audio system initialized', { isEmbedded })
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
+
+const BOOT_PHASES = {
+  START_SCREEN: 'START_SCREEN',
+  PORTAL_TRANSITION: 'PORTAL_TRANSITION',
+  CRATE_VIEW: 'CRATE_VIEW'
+}
+
+let bootPhase = BOOT_PHASES.START_SCREEN
+let sceneReady = false
+let portalTransitionToken = 0
+let portalFlashTimerId = null
+let portalFinishTimerId = null
+
+function getPortalTransitionConfig() {
+  if (prefersReducedMotion) {
+    return {
+      durationMs: 520,
+      flashDelayMs: 210
+    }
+  }
+
+  return {
+    durationMs: 1080,
+    flashDelayMs: 620
+  }
+}
+
+function clearPortalTransitionTimers() {
+  if (portalFlashTimerId) {
+    clearTimeout(portalFlashTimerId)
+    portalFlashTimerId = null
+  }
+  if (portalFinishTimerId) {
+    clearTimeout(portalFinishTimerId)
+    portalFinishTimerId = null
+  }
+}
+
+function updateBootPresentation() {
+  if (!bootLayer || !bootStartBtn || !bootSupportCopy) return
+
+  bootLayer.classList.toggle('visible', bootPhase !== BOOT_PHASES.CRATE_VIEW)
+  bootLayer.classList.toggle('boot-phase-start-screen', bootPhase === BOOT_PHASES.START_SCREEN)
+  bootLayer.classList.toggle('boot-phase-portal-transition', bootPhase === BOOT_PHASES.PORTAL_TRANSITION)
+  bootLayer.classList.toggle('scene-ready', sceneReady)
+  bootLayer.classList.toggle('reduced-motion', prefersReducedMotion)
+
+  if (bootPhase === BOOT_PHASES.START_SCREEN) {
+    bootSupportCopy.textContent = sceneReady
+      ? 'First-person breach protocol. Tear through the barrier, hit the flash, and drop into the mystery crate chamber.'
+      : 'Stabilizing the rupture. Hold position while the chamber locks in.'
+    bootStartBtn.textContent = sceneReady ? 'Enter The Breach' : 'Stabilizing Portal...'
+    bootStartBtn.disabled = !sceneReady
+  } else {
+    bootStartBtn.disabled = true
+  }
+}
+
+function setBootPhase(nextPhase) {
+  bootPhase = nextPhase
+  if (nextPhase !== BOOT_PHASES.PORTAL_TRANSITION && bootLayer) {
+    bootLayer.classList.remove('portal-flash-active')
+  }
+  updateBootPresentation()
+}
+
+function finishPortalTransition(token = portalTransitionToken) {
+  if (token !== portalTransitionToken) return
+
+  clearPortalTransitionTimers()
+  introStartTime = 0
+  introComplete = false
+  playerInRange = false
+  cameraTargetCurrent.copy(cameraTargetStart)
+  camera.lookAt(cameraTargetCurrent)
+  setBootPhase(BOOT_PHASES.CRATE_VIEW)
+}
+
+function startPortalTransition() {
+  if (!sceneReady || bootPhase !== BOOT_PHASES.START_SCREEN) return
+
+  portalTransitionToken += 1
+  const token = portalTransitionToken
+  const { durationMs, flashDelayMs } = getPortalTransitionConfig()
+
+  clearPortalTransitionTimers()
+  playerInRange = false
+  introComplete = false
+  introStartTime = 0
+  setBootPhase(BOOT_PHASES.PORTAL_TRANSITION)
+
+  portalFlashTimerId = setTimeout(() => {
+    if (token !== portalTransitionToken || !bootLayer) return
+    bootLayer.classList.add('portal-flash-active')
+  }, flashDelayMs)
+
+  portalFinishTimerId = setTimeout(() => {
+    finishPortalTransition(token)
+  }, durationMs)
+}
+
+function markSceneReady() {
+  sceneReady = true
+  updateBootPresentation()
+}
+
+if (reducedMotionQuery?.addEventListener) {
+  reducedMotionQuery.addEventListener('change', (event) => {
+    prefersReducedMotion = event.matches
+    updateBootPresentation()
+  })
+}
+
+bootStartBtn?.addEventListener('click', (event) => {
+  event.stopPropagation()
+  startPortalTransition()
+})
+
+bootLayer?.addEventListener('click', () => {
+  if (bootPhase === BOOT_PHASES.PORTAL_TRANSITION) {
+    finishPortalTransition()
+  }
+})
+
+updateBootPresentation()
 
 // Helper: Wait for audio to have duration available (with timeout + error resilience)
 const AUDIO_READY_TIMEOUT_MS = 1500
@@ -1482,6 +1632,7 @@ loader.load(
     setError('')
     setState(STATES.READY)
     createHatDisplay3D()
+    markSceneReady()
   },
   undefined,
   () => {
@@ -1492,6 +1643,7 @@ loader.load(
     crateIsOpen = false
     setState(STATES.READY)
     createHatDisplay3D()
+    markSceneReady()
   }
 )
 
@@ -3160,7 +3312,10 @@ function animate() {
   const time = clock.getElapsedTime()
   const winnerRevealImpulse = getWinnerRevealImpulse(performance.now())
 
-  if (!introComplete) {
+  if (bootPhase !== BOOT_PHASES.CRATE_VIEW) {
+    cameraTargetCurrent.copy(cameraTargetStart)
+    camera.lookAt(cameraTargetCurrent)
+  } else if (!introComplete) {
     if (introStartTime === 0) {
       introStartTime = time
     }
@@ -3189,7 +3344,7 @@ function animate() {
   }
 
   if (pressXPrompt && crateRoot) {
-    if (currentState === STATES.READY && playerInRange) {
+    if (bootPhase === BOOT_PHASES.CRATE_VIEW && currentState === STATES.READY && playerInRange) {
       const bbox = new THREE.Box3().setFromObject(crateRoot)
       const center = new THREE.Vector3()
       bbox.getCenter(center)

@@ -5,6 +5,22 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- Portal Intro Pass: Hybrid Start Screen and Breach Handoff
+
+**Type:** Surgical portal intro pass. `src/main.js`, `src/style.css`, `docs/runtime-test-checklist.md`.
+
+Added a lightweight boot-phase entry experience in front of the existing crate scene using a hybrid DOM-first approach inspired by COD Zombies and Dark Aether portal handoff beats. The new entry flow stays outside the crate `STATES` machine and uses a separate boot-phase model only: `START_SCREEN`, `PORTAL_TRANSITION`, and `CRATE_VIEW`. A new start screen now sits inside `#scene-root` with one primary entry CTA and restrained supporting copy, while the current crate scene stays frozen behind it until the scene is fully ready and the user starts the breach.
+
+When the user starts entry, the UI switches to a short portal-transition overlay that simulates a first-person barrier breach with a wall-like framing layer, a central rupture, a brief push-through, a restrained lower-corner faux-FPS silhouette hint, and a white-flash handoff. No heavy particles, volumetrics, post-processing, character rigs, or real weapon models were introduced. When that short sequence ends, the code resets `introStartTime`, keeps `introComplete = false`, switches the boot phase to `CRATE_VIEW`, and lets the existing crate camera intro run exactly as before. Press X remains hidden until the portal transition and the original crate intro are both complete. Reduced-motion users get a shorter simplified version of the handoff.
+
+What was not changed:
+- The crate `STATES` machine or `startSpin()` / result flow
+- Crate height, hat reveal height, or accepted camera and idle behavior after entry
+- Spin cadence, crate-open behavior, question mark behavior, reveal ritual direction, question mark magic direction, UI polish direction, tiny realness direction, cinder block realism direction, visible support density direction, or COD realism-gap direction
+- Existing audio-unlock overlay and the accepted crate audio flow
+- Button visibility rules or preview exact-hat checkout behavior
+- Backend, Shopify, Flow, datasets, or the storefront wrapper
+
 ## 2026-03-27 -- COD Reference Realism Gap Pass: Dirtier Surface Story and Local Ground Story
 
 **Type:** Surgical realism pass. `src/main.js`, `docs/runtime-test-checklist.md`.
