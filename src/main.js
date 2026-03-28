@@ -2883,12 +2883,16 @@ function createFallbackCrate() {
   const block2 = createCinderBlock(0.65, -0.38, -0.08)
   const block3 = createCinderBlock(-0.68, 0.32, 0.12)
   const block4 = createCinderBlock(0.72, 0.35, -0.03)
+  const block5 = createCinderBlock(-0.94, -0.02, 0.09)
+  const block6 = createCinderBlock(0.96, 0.01, -0.06)
 
   // Add blocks to scene (not to group, so they don't scale with crate)
   scene.add(block1)
   scene.add(block2)
   scene.add(block3)
   scene.add(block4)
+  scene.add(block5)
+  scene.add(block6)
 
   // Lift crate to sit on blocks
   group.position.y = blockH

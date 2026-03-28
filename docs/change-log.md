@@ -5,6 +5,23 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- Support Arrangement Pass: Additional Visible Side Supports Without Elevation Changes
+
+**Type:** Surgical support-arrangement pass. `src/main.js`, `docs/runtime-test-checklist.md`.
+
+Kept the existing four hollow-core cinder blocks exactly where they were and added two more supports total so more of the crate's support structure reads from the live front three-quarter camera angle. The new blocks reuse the same hollow-core cinder block builder, the same outer dimensions, and the same top support plane as the existing blocks. One new support was added on the left side and one on the right side, each placed between the current front and rear supports so the crate feels supported across more of its visible width without redistributing the original footprint.
+
+The additional supports still live outside `crateRoot`, and `group.position.y = blockH` remains unchanged, so crate height and hat reveal height stay locked. The Tiny Realness contact shadow was left untouched in this first pass because the original four-support footprint remains in place and the new side supports sit within the broader existing underside grounding.
+
+What was not changed:
+- `blockW`, `blockH`, or `blockD`
+- The original four support placements or rotations
+- Crate height or hat reveal height
+- Camera behavior, cadence, crate-open behavior, or state machine behavior
+- Contact-shadow logic
+- Audio behavior and iframe unlock flow
+- Button visibility rules, preview exact-hat checkout behavior, reveal ritual direction, question mark magic direction, UI polish direction, backend, Shopify, Flow, datasets, or the storefront wrapper
+
 ## 2026-03-27 -- Support Block Realism Pass: Hollow-Core Cinder Block Read Without Elevation Changes
 
 **Type:** Surgical support realism pass. `src/main.js`, `docs/runtime-test-checklist.md`.
