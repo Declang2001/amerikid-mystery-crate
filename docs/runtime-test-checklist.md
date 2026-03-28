@@ -159,6 +159,8 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Lid seams and body seams read deeper while question marks remain clean and fully readable
 - [ ] Hardware, latch, hinges, and side handles read clearly on desktop and mobile iframe layouts
 - [ ] Crate feels more grounded through local shadowing without swallowing the cinder blocks or room background
+- [ ] Local contact shadow reads as support-aware weight on the cinder blocks instead of a generic soft oval
+- [ ] Support pockets feel natural and slightly irregular without looking like painted blobs on the block tops
 - [ ] Lid open timing and motion still match the accepted cadence after the material pass
 
 ---

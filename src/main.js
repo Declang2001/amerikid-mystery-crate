@@ -1495,7 +1495,7 @@ loader.load(
   }
 )
 
-// Procedural contact shadow texture (radial gradient)
+// Procedural contact shadow texture with support-aware grounding
 function createContactShadowTexture(size = 256) {
   const canvas = document.createElement('canvas')
   canvas.width = size
@@ -1506,19 +1506,98 @@ function createContactShadowTexture(size = 256) {
   const centerY = size / 2
   const radius = size / 2
 
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.18)'
-  ctx.beginPath()
-  ctx.ellipse(centerX, centerY, radius * 0.88, radius * 0.5, 0, 0, Math.PI * 2)
-  ctx.fill()
+  const fillSoftEllipse = (x, y, rx, ry, rotation, stops) => {
+    ctx.save()
+    ctx.translate(x, y)
+    ctx.rotate(rotation)
+    ctx.scale(rx, ry)
 
-  const gradient = ctx.createRadialGradient(centerX, centerY, radius * 0.08, centerX, centerY, radius)
-  gradient.addColorStop(0, 'rgba(0, 0, 0, 0.95)')
-  gradient.addColorStop(0.28, 'rgba(0, 0, 0, 0.62)')
-  gradient.addColorStop(0.68, 'rgba(0, 0, 0, 0.18)')
-  gradient.addColorStop(1, 'rgba(0, 0, 0, 0)')
+    const gradient = ctx.createRadialGradient(0, 0, 0.08, 0, 0, 1)
+    for (const [stop, color] of stops) {
+      gradient.addColorStop(stop, color)
+    }
 
-  ctx.fillStyle = gradient
-  ctx.fillRect(0, 0, size, size)
+    ctx.fillStyle = gradient
+    ctx.beginPath()
+    ctx.arc(0, 0, 1, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+  }
+
+  // Broad underside mass, kept softer so the support pockets carry most of the weight.
+  fillSoftEllipse(
+    centerX - size * 0.012,
+    centerY + size * 0.014,
+    radius * 1.02,
+    radius * 0.57,
+    -0.035,
+    [
+      [0, 'rgba(0, 0, 0, 0.52)'],
+      [0.32, 'rgba(0, 0, 0, 0.28)'],
+      [0.72, 'rgba(0, 0, 0, 0.11)'],
+      [1, 'rgba(0, 0, 0, 0)']
+    ]
+  )
+
+  // Slight center cradle keeps the crate underside connected without reverting to a perfect oval.
+  fillSoftEllipse(
+    centerX,
+    centerY + size * 0.008,
+    radius * 0.68,
+    radius * 0.26,
+    0,
+    [
+      [0, 'rgba(0, 0, 0, 0.44)'],
+      [0.46, 'rgba(0, 0, 0, 0.16)'],
+      [1, 'rgba(0, 0, 0, 0)']
+    ]
+  )
+
+  // Support pockets roughly align to the cinder block footprint so the shadow feels loaded.
+  const supportPockets = [
+    { x: 0.35, y: 0.325, rx: 0.17, ry: 0.13, rot: -0.1, alpha: 0.78 },
+    { x: 0.65, y: 0.315, rx: 0.16, ry: 0.125, rot: 0.08, alpha: 0.74 },
+    { x: 0.34, y: 0.685, rx: 0.165, ry: 0.13, rot: 0.1, alpha: 0.75 },
+    { x: 0.66, y: 0.675, rx: 0.17, ry: 0.13, rot: -0.08, alpha: 0.79 }
+  ]
+
+  for (const pocket of supportPockets) {
+    fillSoftEllipse(
+      size * pocket.x,
+      size * pocket.y,
+      radius * pocket.rx,
+      radius * pocket.ry,
+      pocket.rot,
+      [
+        [0, `rgba(0, 0, 0, ${pocket.alpha})`],
+        [0.28, `rgba(0, 0, 0, ${pocket.alpha * 0.58})`],
+        [0.72, 'rgba(0, 0, 0, 0.09)'],
+        [1, 'rgba(0, 0, 0, 0)']
+      ]
+    )
+  }
+
+  // Very subtle uneven feathering keeps the edge from reading as a stamped decal.
+  const featherSmudges = [
+    { x: 0.22, y: 0.49, rx: 0.16, ry: 0.1, rot: -0.25, alpha: 0.12 },
+    { x: 0.51, y: 0.18, rx: 0.18, ry: 0.08, rot: 0.04, alpha: 0.11 },
+    { x: 0.8, y: 0.54, rx: 0.15, ry: 0.09, rot: 0.22, alpha: 0.1 }
+  ]
+
+  for (const smudge of featherSmudges) {
+    fillSoftEllipse(
+      size * smudge.x,
+      size * smudge.y,
+      radius * smudge.rx,
+      radius * smudge.ry,
+      smudge.rot,
+      [
+        [0, `rgba(0, 0, 0, ${smudge.alpha})`],
+        [0.55, `rgba(0, 0, 0, ${smudge.alpha * 0.45})`],
+        [1, 'rgba(0, 0, 0, 0)']
+      ]
+    )
+  }
 
   const texture = new THREE.CanvasTexture(canvas)
   return texture

@@ -5,6 +5,25 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- Tiny Realness Pass: Support-Aware Contact Shadow Only
+
+**Type:** Surgical grounding pass. `src/main.js`, `docs/runtime-test-checklist.md`.
+
+Retuned only the existing local contact shadow texture in `src/main.js` so the crate reads as more physically loaded onto its cinder-block supports without broadening into a new atmosphere or material pass. The old contact shadow was a clean radial ellipse. The new version keeps the same single canvas texture, the same contact-shadow plane, and the same multiply-blended rendering path, but layers in broader support pockets near the block footprint, a softer underside cradle, and a few restrained feathering smudges so the shadow no longer reads like a generic stamped oval.
+
+No new geometry systems, no particles, no sprites, no post-processing, and no animated environmental cues were introduced. Cinder block placement, crate height, camera behavior, prompt positioning, reveal cadence, and all preview/purchased logic remain untouched.
+
+What was not changed:
+- Contact shadow mesh type or rendering approach
+- Cinder block placement or crate height
+- Atmosphere overlays or room-background readability
+- Material direction beyond this shadow-shape refinement
+- Spin cadence or duration math
+- Hat reveal height or Y targets
+- Crate-open behavior or state machine behavior
+- Audio behavior and iframe unlock flow
+- Question mark behavior, reveal ritual direction, UI polish direction, preview exact-hat checkout behavior, backend, Shopify, Flow, datasets, or the storefront wrapper
+
 ## 2026-03-27 -- UI Polish Pass: Stronger Panel Messaging and CTA Hierarchy
 
 **Type:** Surgical UI presentation pass. `src/main.js`, `src/style.css`, `docs/runtime-test-checklist.md`.
