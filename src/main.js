@@ -761,6 +761,14 @@ let crateCrackMaterials = []
 // Question mark glow layer
 let questionMarkGlowMesh = null
 let questionMarkGlowMat = null
+const QUESTION_MARK_BASE_PULSE_MIN = 0.35
+const QUESTION_MARK_BASE_PULSE_AMPLITUDE = 0.15
+const QUESTION_MARK_BASE_PULSE_SPEED = 2.5
+const QUESTION_MARK_MICRO_PULSE_AMPLITUDE = 0.05
+const QUESTION_MARK_MICRO_PULSE_SPEED = 8.75
+const QUESTION_MARK_LEAK_INTENSITY = 0.5
+const QUESTION_MARK_GLOW_SCALE_AMPLITUDE = 0.05
+const QUESTION_MARK_GLOW_BASE_SCALE_X = 1 / 1.35
 
 function makeHatSvg(primary, accent) {
   const svg = `
@@ -2404,7 +2412,7 @@ function createFallbackCrate() {
   );
   questionMarkGlowMesh.rotation.x = -Math.PI / 2;
   questionMarkGlowMesh.position.set(0, 0.14, 0.65);  // Just above base decal
-  questionMarkGlowMesh.scale.x = 1 / 1.35;
+  questionMarkGlowMesh.scale.set(QUESTION_MARK_GLOW_BASE_SCALE_X, 1, 1);
   questionMarkGlowMesh.renderOrder = 998;
   questionMarkGlowMesh.visible = false;  // Start hidden, controlled in animate loop
   lidPivot.add(questionMarkGlowMesh);
@@ -2800,9 +2808,22 @@ function animate() {
 
     // Drive question mark glow opacity (continuous subtle pulse + state-driven boost)
     if (questionMarkGlowMat) {
-      const qmarkPulse = 0.35 + 0.15 * Math.sin(time * 2.5) // Subtle 0.20–0.50 range pulse
+      const qmarkPulse = QUESTION_MARK_BASE_PULSE_MIN
+        + QUESTION_MARK_BASE_PULSE_AMPLITUDE * Math.sin(time * QUESTION_MARK_BASE_PULSE_SPEED)
+      const qmarkMicroPulse = QUESTION_MARK_MICRO_PULSE_AMPLITUDE
+        * (0.5 + 0.5 * Math.sin(time * QUESTION_MARK_MICRO_PULSE_SPEED + Math.sin(time * 1.35) * 0.65))
       const questionMarkLeak = Math.max(0, Math.min(1, crateGlowIntensity / CRATE_GLOW_MAX))
-      questionMarkGlowMat.opacity = qmarkPulse + questionMarkLeak * 0.5 * flicker
+      const questionMarkEnergy = qmarkPulse + qmarkMicroPulse + questionMarkLeak * QUESTION_MARK_LEAK_INTENSITY * flicker
+      questionMarkGlowMat.opacity = Math.min(0.98, questionMarkEnergy)
+
+      if (questionMarkGlowMesh) {
+        const questionMarkGlowScale = 1 + questionMarkEnergy * QUESTION_MARK_GLOW_SCALE_AMPLITUDE
+        questionMarkGlowMesh.scale.set(
+          QUESTION_MARK_GLOW_BASE_SCALE_X * questionMarkGlowScale,
+          questionMarkGlowScale,
+          1
+        )
+      }
     }
   }
 

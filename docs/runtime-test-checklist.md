@@ -22,6 +22,8 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Crate lid opens with open SFX
 - [ ] Glowing question marks stay visible on the lid surface in all states (open, spin, claimed)
 - [ ] Question marks do not bleed through or draw over the hat display
+- [ ] Question mark glow feels more alive through layered pulse and subtle scale breathing while the readable yellow/gold decal stays stable
+- [ ] Question mark energy remains secondary to the winner hat reveal and does not overpower the reveal ritual beat
 - [ ] Hat display rises from inside crate
 - [ ] Hats cycle during spin with audio playing
 - [ ] Spin lands on a hat (not stuck mid-cycle)
@@ -119,6 +121,7 @@ Each item should be tested manually unless automated tests exist.
 - [ ] No mixed-content or CSP errors in console
 - [ ] Canvas renders at correct size within iframe
 - [ ] Responsive layout works at mobile viewport inside iframe
+- [ ] Question mark glow animation remains smooth in mobile iframe context with no flashing or alias shimmer
 - [ ] Winner reveal effect remains smooth in mobile iframe context with no obvious frame drops or flashing
 
 ---

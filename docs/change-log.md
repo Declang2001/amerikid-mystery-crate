@@ -5,6 +5,25 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- Question Mark Magic Pass: Layered Glow Energy Without Logic Changes
+
+**Type:** Surgical visual enhancement pass. `src/main.js`, `docs/runtime-test-checklist.md`.
+
+Retuned only the lid question mark glow layer so it feels more magical and alive without touching the readable base decal, the state machine, or the winner reveal logic. The glow now uses a composite energy signal built from the existing slow pulse, a small secondary micro-pulse, and the existing crate leak/flicker relationship. That energy now drives both glow opacity and a restrained glow-mesh scale breath, keeping the lid feeling charged while preserving the established yellow/gold question mark look.
+
+The readable decal remains unchanged, visibility rules remain unchanged, and no new particles, aura planes, or rendering systems were introduced. The winner reveal remains the dominant payoff moment because the question mark pass does not hook into `winnerRevealImpulse`.
+
+What was not changed:
+- Spin cadence or duration math
+- Hat reveal height or Y targets
+- Crate-open behavior or state machine behavior
+- Audio behavior and iframe unlock flow
+- Question mark visibility rules
+- Button visibility rules
+- Preview exact-hat checkout behavior
+- Reveal ritual direction
+- Backend, Shopify, Flow, datasets, atmosphere direction, background readability, physical/material direction, or the storefront wrapper
+
 ## 2026-03-27 -- Reveal Ritual Pass: Winner Impact Beat Without Flow Changes
 
 **Type:** Surgical visual enhancement pass. `src/main.js`, `src/style.css`, `docs/runtime-test-checklist.md`.
