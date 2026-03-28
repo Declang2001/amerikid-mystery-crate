@@ -5,6 +5,24 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- Reveal Ritual Pass: Winner Impact Beat Without Flow Changes
+
+**Type:** Surgical visual enhancement pass. `src/main.js`, `src/style.css`, `docs/runtime-test-checklist.md`.
+
+Added a dedicated winner-only reveal impulse that fires only when the state enters `WINNER_SELECTED`. The new pass reuses the existing hat scale, hat glow, and crate internal light rather than introducing new systems. On landing, the winning hat gets a short overshoot, the glow plane blooms brighter and slightly larger, and the crate interior punches brighter for a brief payoff beat before settling back into the accepted held-open winner presentation.
+
+Added one small panel-side accent so the result card feels tied to the landing moment. The card now gets a restrained one-shot pulse on winner reveal using the existing layout and styling language. No new UI blocks, no extra controls, and no separate polish layer were introduced.
+
+What was not changed:
+- Spin cadence or duration math
+- Hat reveal height or Y targets
+- Crate-open behavior or state machine behavior
+- Audio behavior and iframe unlock flow
+- Question mark behavior
+- Button visibility rules
+- Preview exact-hat checkout behavior
+- Backend, Shopify, Flow, datasets, atmosphere direction, background readability, physical/material direction, or the storefront wrapper
+
 ## 2026-03-27 -- Physical Crate / Material Pass: Heavier Wood, Cleaner Hardware, Stronger Grounding
 
 **Type:** Surgical visual enhancement pass. `src/main.js`, `docs/runtime-test-checklist.md`.

@@ -735,6 +735,11 @@ const hatRevealDelaySeconds = 0.4
 let hatDisplayOutline = null
 let hatDisplayScale = 1.0
 let hatDisplayScaleTarget = 1.0
+let winnerRevealStartTime = -1
+const WINNER_REVEAL_DURATION_MS = 420
+const WINNER_REVEAL_SCALE_BOOST = 0.18
+const WINNER_REVEAL_GLOW_BOOST = 0.42
+const WINNER_REVEAL_LIGHT_BOOST = 2.0
 
 // Crate internal glow (yellow light, state-driven)
 let crateInternalLight = null
@@ -814,6 +819,7 @@ function formatStatus(state) {
 }
 
 function setState(state) {
+  const previousState = currentState
   currentState = state
   resultStatus.textContent = formatStatus(state)
   
@@ -826,6 +832,15 @@ function setState(state) {
       STATES.CLOSING
     ].includes(state)
     panel.classList.toggle('visible', isResultState)
+    panel.classList.toggle('winner-reveal', state === STATES.WINNER_SELECTED)
+  }
+
+  if (state === STATES.WINNER_SELECTED && previousState !== STATES.WINNER_SELECTED) {
+    winnerRevealStartTime = performance.now()
+    hatDisplayScale = Math.max(hatDisplayScale, 1.08)
+    hatDisplayScaleTarget = 1.0
+  } else if (state !== STATES.WINNER_SELECTED) {
+    winnerRevealStartTime = -1
   }
   
   updateControls()
@@ -1058,6 +1073,20 @@ let spinWinnerHatName = null
  */
 function spinEasing(t) {
   return 1 - Math.pow(1 - t, 1.7)
+}
+
+function getWinnerRevealImpulse(nowMs) {
+  if (currentState !== STATES.WINNER_SELECTED || winnerRevealStartTime < 0) {
+    return 0
+  }
+
+  const progress = Math.min(Math.max((nowMs - winnerRevealStartTime) / WINNER_REVEAL_DURATION_MS, 0), 1)
+  if (progress >= 1) {
+    return 0
+  }
+
+  const shaped = 1 - Math.pow(1 - progress, 1.8)
+  return Math.sin(shaped * Math.PI)
 }
 
 async function startSpin() {
@@ -2693,6 +2722,7 @@ function animate() {
   }
 
   const time = clock.getElapsedTime()
+  const winnerRevealImpulse = getWinnerRevealImpulse(performance.now())
 
   if (!introComplete) {
     if (introStartTime === 0) {
@@ -2756,10 +2786,11 @@ function animate() {
     }
     // Smooth ramp toward target
     crateGlowIntensity += (crateGlowTarget - crateGlowIntensity) * CRATE_GLOW_RAMP_SPEED
-    crateInternalLight.intensity = crateGlowIntensity
+    const boostedCrateGlowIntensity = crateGlowIntensity + winnerRevealImpulse * WINNER_REVEAL_LIGHT_BOOST
+    crateInternalLight.intensity = boostedCrateGlowIntensity
 
     // Drive crack material opacity with flicker
-    const leak = Math.max(0, Math.min(1, crateGlowIntensity / CRATE_GLOW_MAX))
+    const leak = Math.max(0, Math.min(1, boostedCrateGlowIntensity / CRATE_GLOW_MAX))
     const flicker = 0.85 + 0.15 * (Math.sin(time * 13.0) * 0.5 + 0.5)
     const crackOpacity = (0.05 + 0.35 * leak) * flicker
 
@@ -2770,7 +2801,8 @@ function animate() {
     // Drive question mark glow opacity (continuous subtle pulse + state-driven boost)
     if (questionMarkGlowMat) {
       const qmarkPulse = 0.35 + 0.15 * Math.sin(time * 2.5) // Subtle 0.20–0.50 range pulse
-      questionMarkGlowMat.opacity = qmarkPulse + leak * 0.5 * flicker
+      const questionMarkLeak = Math.max(0, Math.min(1, crateGlowIntensity / CRATE_GLOW_MAX))
+      questionMarkGlowMat.opacity = qmarkPulse + questionMarkLeak * 0.5 * flicker
     }
   }
 
@@ -2806,9 +2838,18 @@ function animate() {
     }
 
     hatDisplayScale += (hatDisplayScaleTarget - hatDisplayScale) * 0.25
-    hatDisplay3D.scale.setScalar(hatDisplayScale)
+    const winnerRevealScaleBoost = currentState === STATES.WINNER_SELECTED
+      ? winnerRevealImpulse * WINNER_REVEAL_SCALE_BOOST
+      : 0
+    const renderedHatScale = hatDisplayScale + winnerRevealScaleBoost
+    hatDisplay3D.scale.setScalar(renderedHatScale)
     if (hatDisplayOutline) {
-      hatDisplayOutline.scale.setScalar(hatDisplayScale * 1.06)
+      hatDisplayOutline.scale.setScalar(renderedHatScale * 1.06)
+    }
+    if (currentState === STATES.WINNER_SELECTED || currentState === STATES.WINNER_PENDING_CLAIM) {
+      hatDisplayGlow.scale.setScalar(renderedHatScale * (1.18 + winnerRevealImpulse * 0.08))
+    } else {
+      hatDisplayGlow.scale.setScalar(1.18)
     }
 
     if (currentState === STATES.SPINNING) {
@@ -2816,7 +2857,10 @@ function animate() {
       hatDisplayGlow.material.opacity = 0.15
     } else if (currentState === STATES.WINNER_SELECTED || currentState === STATES.WINNER_PENDING_CLAIM) {
       const pulse = 0.25 + Math.sin(time * 3.0) * 0.15
-      hatDisplayGlow.material.opacity = pulse
+      const winnerRevealGlowBoost = currentState === STATES.WINNER_SELECTED
+        ? winnerRevealImpulse * WINNER_REVEAL_GLOW_BOOST
+        : 0
+      hatDisplayGlow.material.opacity = Math.min(0.9, pulse + winnerRevealGlowBoost)
     } else {
       hatDisplayGlow.material.opacity = 0.0
     }

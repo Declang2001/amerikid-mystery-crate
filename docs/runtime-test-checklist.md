@@ -25,8 +25,11 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Hat display rises from inside crate
 - [ ] Hats cycle during spin with audio playing
 - [ ] Spin lands on a hat (not stuck mid-cycle)
+- [ ] Winning hat gets a brief reveal impact beat on landing (extra scale, glow burst, and crate light pulse)
+- [ ] Winning reveal settles cleanly back to the accepted held-open winner state without changing cadence or height
 - [ ] Winner hat shows with glow pulse
 - [ ] Result panel slides up showing hat image and name
+- [ ] Result card gets a subtle winner accent without shifting layout or affecting button visibility
 
 ---
 
@@ -116,6 +119,7 @@ Each item should be tested manually unless automated tests exist.
 - [ ] No mixed-content or CSP errors in console
 - [ ] Canvas renders at correct size within iframe
 - [ ] Responsive layout works at mobile viewport inside iframe
+- [ ] Winner reveal effect remains smooth in mobile iframe context with no obvious frame drops or flashing
 
 ---
 
