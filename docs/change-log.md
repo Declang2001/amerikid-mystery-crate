@@ -5,6 +5,23 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- Support Arrangement Correction: Front Corner Support Read From the Live Camera
+
+**Type:** Surgical support-arrangement correction. `src/main.js`, `docs/runtime-test-checklist.md`.
+
+Corrected the previous support-arrangement pass by repositioning only the two added supports. The first arrangement increased support count, but the added blocks sat too far toward the side midpoints, so the live camera still read the crate as mainly resting on two center-ish supports. This correction keeps the original four hollow-core supports exactly where they were and moves only the two added supports forward and outward so the front-left and front-right lower corners now read as visibly supported from the current fixed camera.
+
+The hollow-core cinder block builder is unchanged, the supports still live outside `crateRoot`, and `group.position.y = blockH` remains unchanged, so crate height and hat reveal height stay locked. The Tiny Realness contact shadow was left untouched because this correction only repositions the added visible supports and does not alter crate elevation or the core four-support grounding relationship.
+
+What was not changed:
+- `blockW`, `blockH`, or `blockD`
+- The original four support placements or rotations
+- Crate height or hat reveal height
+- Camera behavior, cadence, crate-open behavior, or state machine behavior
+- Contact-shadow logic
+- Audio behavior and iframe unlock flow
+- Button visibility rules, preview exact-hat checkout behavior, reveal ritual direction, question mark magic direction, UI polish direction, backend, Shopify, Flow, datasets, or the storefront wrapper
+
 ## 2026-03-27 -- Support Arrangement Pass: Additional Visible Side Supports Without Elevation Changes
 
 **Type:** Surgical support-arrangement pass. `src/main.js`, `docs/runtime-test-checklist.md`.
