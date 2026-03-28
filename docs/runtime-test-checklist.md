@@ -166,6 +166,10 @@ Each item should be tested manually unless automated tests exist.
 - [ ] The live camera now reads a denser support bed with at least 6 clearly readable cinder blocks under the crate
 - [ ] Visible support presence reads across front-left, front-center, and front-right rather than collapsing into just two obvious supports
 - [ ] Added supports keep the same top support plane and do not create a grounding mismatch against the existing contact shadow
+- [ ] Wood now carries darker lower-plank grime, seam-edge breakup, and rubbed corners without muddying the crate silhouette
+- [ ] The front hazard stencil reads worn, chipped, and rubbed instead of freshly painted
+- [ ] Hardware feels slightly heavier and more field-used without collapsing into noisy dark shapes on mobile
+- [ ] Floor grime and debris planes add world story near the crate base without z-fighting, clipping into blocks, or stealing focus from the hat reveal
 - [ ] Lid open timing and motion still match the accepted cadence after the material pass
 
 ---

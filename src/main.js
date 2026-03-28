@@ -1667,6 +1667,40 @@ function createWoodTextureSet(width = 512, height = 512) {
     width: 18 + Math.random() * 34,
     strength: 0.03 + Math.random() * 0.06
   }))
+  const grimeClusters = Array.from({ length: 7 }, () => ({
+    x: Math.random() * width,
+    y: height * (0.42 + Math.random() * 0.5),
+    radiusX: 36 + Math.random() * 72,
+    radiusY: 18 + Math.random() * 56,
+    strength: 0.025 + Math.random() * 0.05
+  }))
+
+  const computeWoodWear = (x, y, repeatedU, repeatedV) => {
+    const localU = repeatedU - Math.floor(repeatedU)
+    const localV = repeatedV - Math.floor(repeatedV)
+    const edgeU = Math.min(localU, 1 - localU)
+    const edgeV = Math.min(localV, 1 - localV)
+    const lowerPlank = Math.pow(Math.max(0, localV - 0.28) / 0.72, 1.7) * 0.42
+    const seamEdge = Math.pow(1 - Math.min(1, edgeU * 9.5), 2.1) * 0.34
+    const seamCross = Math.pow(1 - Math.min(1, edgeV * 11.5), 2.0) * 0.16
+    const cornerRub = Math.pow(1 - Math.min(1, Math.min(edgeU, edgeV) * 10.5), 2.4) * 0.22
+    const latchDx = (localU - 0.5) / 0.16
+    const latchDy = (localV - 0.56) / 0.2
+    const latchWear = Math.exp(-(latchDx * latchDx + latchDy * latchDy)) * 0.18
+
+    let grimeScatter = 0
+    for (let i = 0; i < grimeClusters.length; i++) {
+      const cluster = grimeClusters[i]
+      const dx = (x - cluster.x) / cluster.radiusX
+      const dy = (y - cluster.y) / cluster.radiusY
+      grimeScatter += Math.exp(-(dx * dx + dy * dy)) * cluster.strength
+    }
+
+    const breakup = 0.76 + sampleNoise(x * 0.19, y * 0.17) * 0.48
+    const grime = (lowerPlank + seamEdge + seamCross + latchWear + grimeScatter) * breakup
+
+    return { lowerPlank, seamEdge, seamCross, cornerRub, latchWear, grime }
+  }
 
   let drift = Math.random() * Math.PI * 2
   const driftVariation = Math.random() * 0.03 + 0.01
@@ -1689,6 +1723,7 @@ function createWoodTextureSet(width = 512, height = 512) {
       const boardEdgeY = Math.min(repeatedV - Math.floor(repeatedV), 1 - (repeatedV - Math.floor(repeatedV)))
       const boardEdgeShade = Math.pow(1 - Math.min(1, boardEdgeX * 7.5), 2) * 0.09
       const boardCrossShade = Math.pow(1 - Math.min(1, boardEdgeY * 8.5), 2) * 0.03
+      const wear = computeWoodWear(x, y, repeatedU, repeatedV)
 
       let stainShift = 0
       for (let i = 0; i < stainBands.length; i++) {
@@ -1705,7 +1740,11 @@ function createWoodTextureSet(width = 512, height = 512) {
         (noiseA - 0.5) * 0.1 -
         boardEdgeShade -
         boardCrossShade * 0.45 -
-        stainShift * 0.22
+        stainShift * 0.22 -
+        wear.seamEdge * 0.08 -
+        wear.seamCross * 0.05 -
+        wear.latchWear * 0.04 -
+        wear.grime * 0.05
 
       // Add subtle knots with swirl
       for (let i = 0; i < knots.length; i++) {
@@ -1740,6 +1779,7 @@ function createWoodTextureSet(width = 512, height = 512) {
       const boardEdgeY = Math.min(repeatedV - Math.floor(repeatedV), 1 - (repeatedV - Math.floor(repeatedV)))
       const boardEdgeShade = Math.pow(1 - Math.min(1, boardEdgeX * 7.5), 2) * 0.09
       const boardCrossShade = Math.pow(1 - Math.min(1, boardEdgeY * 8.5), 2) * 0.03
+      const wear = computeWoodWear(x, y, repeatedU, repeatedV)
 
       let stainShift = 0
       for (let i = 0; i < stainBands.length; i++) {
@@ -1780,6 +1820,21 @@ function createWoodTextureSet(width = 512, height = 512) {
       g -= stainShift * 10
       b -= stainShift * 5
 
+      const rubbedLift = wear.cornerRub * (6 + noise * 3)
+      r += rubbedLift
+      g += rubbedLift * 0.72
+      b += rubbedLift * 0.28
+
+      const grimeDarken = wear.grime + wear.seamEdge * 0.38 + wear.lowerPlank * 0.22
+      r -= grimeDarken * 26
+      g -= grimeDarken * 20
+      b -= grimeDarken * 12
+
+      const latchShadow = wear.latchWear * (8 + noise * 2)
+      r -= latchShadow
+      g -= latchShadow * 0.86
+      b -= latchShadow * 0.6
+
       // Subtle tint variation
       const tint = 0.94 + noise * 0.12
       r = Math.min(255, Math.max(0, r * tint))
@@ -1793,7 +1848,15 @@ function createWoodTextureSet(width = 512, height = 512) {
       colorData.data[cIndex + 3] = 255
 
       // Improved roughness detail
-      let roughness = 0.58 + (1 - h) * 0.32 + (noise - 0.5) * 0.18 + boardEdgeShade * 0.18 + stainShift * 0.08
+      let roughness =
+        0.58 +
+        (1 - h) * 0.32 +
+        (noise - 0.5) * 0.18 +
+        boardEdgeShade * 0.18 +
+        stainShift * 0.08 +
+        wear.grime * 0.18 +
+        wear.seamEdge * 0.08 +
+        wear.latchWear * 0.06
       roughness = Math.min(1, Math.max(0, roughness))
       const roughValue = Math.round(roughness * 255)
       roughData.data[cIndex] = roughValue
@@ -1998,6 +2061,117 @@ function createHazardStencilTexture(width = 256, height = 256) {
   ctx.lineTo(width * 0.75, lineY + 12)
   ctx.stroke()
 
+  // Chip and rub back the stencil so it reads field-worn instead of freshly painted.
+  ctx.save()
+  ctx.globalCompositeOperation = 'destination-out'
+  for (let i = 0; i < 26; i++) {
+    const chipX = width * (0.18 + Math.random() * 0.64)
+    const chipY = height * (0.18 + Math.random() * 0.66)
+    const chipW = 6 + Math.random() * 18
+    const chipH = 2 + Math.random() * 7
+    ctx.translate(chipX, chipY)
+    ctx.rotate((Math.random() - 0.5) * 1.3)
+    ctx.fillStyle = `rgba(0, 0, 0, ${0.18 + Math.random() * 0.18})`
+    ctx.fillRect(-chipW / 2, -chipH / 2, chipW, chipH)
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+  }
+  for (let i = 0; i < 9; i++) {
+    const rubX = width * (0.22 + Math.random() * 0.56)
+    const rubY = height * (0.22 + Math.random() * 0.52)
+    const rubRadius = 10 + Math.random() * 22
+    const rubGradient = ctx.createRadialGradient(rubX, rubY, 0, rubX, rubY, rubRadius)
+    rubGradient.addColorStop(0, `rgba(0, 0, 0, ${0.16 + Math.random() * 0.12})`)
+    rubGradient.addColorStop(1, 'rgba(0, 0, 0, 0)')
+    ctx.fillStyle = rubGradient
+    ctx.beginPath()
+    ctx.arc(rubX, rubY, rubRadius, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.restore()
+
+  ctx.save()
+  ctx.globalCompositeOperation = 'source-atop'
+  for (let i = 0; i < 8; i++) {
+    const streakX = width * (0.18 + Math.random() * 0.64)
+    const streakY = height * (0.16 + Math.random() * 0.68)
+    const streakW = 18 + Math.random() * 42
+    const streakH = 4 + Math.random() * 9
+    ctx.translate(streakX, streakY)
+    ctx.rotate((Math.random() - 0.5) * 0.7)
+    ctx.fillStyle = `rgba(56, 39, 19, ${0.08 + Math.random() * 0.08})`
+    ctx.fillRect(-streakW / 2, -streakH / 2, streakW, streakH)
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+  }
+  ctx.restore()
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+}
+
+function createFloorGrimeTexture(width = 512, height = 512) {
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+
+  ctx.clearRect(0, 0, width, height)
+
+  const drawSmudge = (x, y, rx, ry, angle, color) => {
+    ctx.save()
+    ctx.translate(x, y)
+    ctx.rotate(angle)
+    ctx.fillStyle = color
+    ctx.beginPath()
+    ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+  }
+
+  for (let i = 0; i < 10; i++) {
+    drawSmudge(
+      width * (0.18 + Math.random() * 0.64),
+      height * (0.2 + Math.random() * 0.6),
+      55 + Math.random() * 120,
+      22 + Math.random() * 52,
+      (Math.random() - 0.5) * 1.6,
+      `rgba(28, 24, 19, ${0.04 + Math.random() * 0.06})`
+    )
+  }
+
+  for (let i = 0; i < 5; i++) {
+    drawSmudge(
+      width * (0.22 + Math.random() * 0.56),
+      height * (0.26 + Math.random() * 0.5),
+      38 + Math.random() * 72,
+      14 + Math.random() * 28,
+      (Math.random() - 0.5) * 1.8,
+      `rgba(74, 39, 28, ${0.04 + Math.random() * 0.05})`
+    )
+  }
+
+  for (let i = 0; i < 22; i++) {
+    ctx.save()
+    ctx.translate(width * Math.random(), height * Math.random())
+    ctx.rotate((Math.random() - 0.5) * Math.PI)
+    ctx.fillStyle = `rgba(176, 166, 146, ${0.03 + Math.random() * 0.05})`
+    ctx.fillRect(-2 - Math.random() * 5, -0.6, 4 + Math.random() * 12, 1.2 + Math.random() * 1.8)
+    ctx.restore()
+  }
+
+  for (let i = 0; i < 48; i++) {
+    const px = Math.random() * width
+    const py = Math.random() * height
+    const radius = 1 + Math.random() * 2.4
+    const gradient = ctx.createRadialGradient(px, py, 0, px, py, radius)
+    gradient.addColorStop(0, `rgba(118, 109, 94, ${0.04 + Math.random() * 0.04})`)
+    gradient.addColorStop(1, 'rgba(118, 109, 94, 0)')
+    ctx.fillStyle = gradient
+    ctx.beginPath()
+    ctx.arc(px, py, radius, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
   return texture
@@ -2095,10 +2269,10 @@ function createFallbackCrate() {
     side: THREE.DoubleSide
   })
   const metalMat = new THREE.MeshStandardMaterial({
-    color: 0x4a4d56,
-    roughness: 0.5,
-    metalness: 0.82,
-    envMapIntensity: 0.8
+    color: 0x43464d,
+    roughness: 0.6,
+    metalness: 0.76,
+    envMapIntensity: 0.66
   })
   const ropeMat = new THREE.MeshStandardMaterial({
     color: 0xc3925a,
@@ -2271,10 +2445,10 @@ function createFallbackCrate() {
 
   // Better metal material for hardware
   const hardwareMat = new THREE.MeshStandardMaterial({
-    color: 0x353841,
-    roughness: 0.52,
-    metalness: 0.88,
-    envMapIntensity: 0.9
+    color: 0x30333a,
+    roughness: 0.68,
+    metalness: 0.78,
+    envMapIntensity: 0.58
   })
   const boltHeadGeo = new THREE.CylinderGeometry(0.018, 0.02, 0.012, 6)
   const handlePinGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.05, 10)
@@ -2788,6 +2962,51 @@ function createFallbackCrate() {
   hazardDecal.position.set(0.5, 0.5, 0.706)
   hazardDecal.scale.x = 1 / 1.35 // Compensate for crate stretch
   group.add(hazardDecal)
+
+  // Local floor grime and debris keeps the scene from reading like a clean stage.
+  const createFloorGrimeDecal = (texture, width, depth, x, z, rotationZ = 0, opacity = 1) => {
+    const grimeMat = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      opacity,
+      toneMapped: false,
+      depthTest: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1
+    })
+    const decal = new THREE.Mesh(
+      new THREE.PlaneGeometry(width, depth),
+      grimeMat
+    )
+    decal.rotation.x = -Math.PI / 2
+    decal.rotation.z = rotationZ
+    decal.position.set(x, -0.008, z)
+    decal.renderOrder = 1
+    return decal
+  }
+
+  const floorGrimeMain = createFloorGrimeDecal(
+    createFloorGrimeTexture(512, 512),
+    3.35,
+    2.15,
+    0.02,
+    0.12,
+    0.08,
+    0.92
+  )
+  const floorGrimeFront = createFloorGrimeDecal(
+    createFloorGrimeTexture(512, 512),
+    2.1,
+    1.15,
+    0.26,
+    0.8,
+    -0.11,
+    0.8
+  )
+  scene.add(floorGrimeMain)
+  scene.add(floorGrimeFront)
 
   // Cinder blocks under crate
   const concreteTexture = createConcreteTexture(128, 128)

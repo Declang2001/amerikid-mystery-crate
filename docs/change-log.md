@@ -5,6 +5,22 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- COD Reference Realism Gap Pass: Dirtier Surface Story and Local Ground Story
+
+**Type:** Surgical realism pass. `src/main.js`, `docs/runtime-test-checklist.md`.
+
+Pushed the fallback mystery-crate scene closer to the COD reference feel by focusing on remaining surface-story and ground-story gaps rather than changing silhouette, camera, or animation behavior. The wood texture generation in `src/main.js` now carries more localized wear and grime breakup around lower planks, rubbed corners, latch-contact zones, and seam edges. The front hazard stencil was distressed so it reads aged and partially rubbed away instead of newly painted. The metal hardware materials were also aged slightly through darker, rougher tuning so the latch, hinges, straps, and brackets feel more field-used without turning into a heavy black mass.
+
+This pass also adds a restrained local floor grime and debris layer through static decal planes placed near the crate base, outside `crateRoot`, just above the floor. That gives the scene more inhabited floor history without rebuilding the room, retuning the background system, or introducing particles, volumetrics, or post-processing. The winner hat, question marks, and result UI remain the focal readable elements.
+
+What was not changed:
+- Camera behavior, crate height, hat reveal height, or support elevation
+- Cadence, crate-open timing, reveal logic, audio behavior, or question mark behavior
+- Button visibility rules, preview exact-hat checkout behavior, or purchased-path logic
+- The room background sphere, fog system, CSS atmosphere overlays, or post-processing
+- Hollow-core cinder block geometry, visible support density arrangement, or contact-shadow logic
+- Backend, Shopify, Flow, datasets, or the storefront wrapper
+
 ## 2026-03-27 -- Support Density Correction: Denser Visible Cinder Block Bed From the Live Camera
 
 **Type:** Surgical support-density correction. `src/main.js`, `docs/runtime-test-checklist.md`.
