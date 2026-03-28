@@ -40,24 +40,45 @@ const app = document.querySelector('#app')
 app.innerHTML = `
   <div id="scene-root">
     <canvas id="scene-canvas"></canvas>
-    <div id="bootLayer" class="boot-layer visible boot-phase-start-screen" aria-live="polite">
-      <div class="boot-start-screen">
-        <div class="boot-copy">
-          <p class="boot-kicker">Dark Aether Breach</p>
-          <h2 class="boot-title">Step Through The Portal</h2>
+    <div id="bootLayer" class="boot-layer visible boot-phase-black-screen" aria-live="polite">
+      <div class="boot-black-screen">
+        <div class="boot-copy boot-copy-black">
+          <p class="boot-kicker">Dark Aether Uplink</p>
+          <h2 class="boot-title">Link To Breach Feed</h2>
           <p id="bootSupportCopy" class="boot-support">
-            First-person breach protocol. Tear through the barrier, hit the flash, and drop into the mystery crate chamber.
+            Syncing portal telemetry and chamber lock.
           </p>
-          <button id="bootStartBtn" class="boot-cta" type="button" disabled>Stabilizing Portal...</button>
+          <button id="bootStartBtn" class="boot-cta" type="button" disabled>Buffering Feed...</button>
         </div>
       </div>
-      <div class="portal-transition" aria-hidden="true">
-        <div class="portal-barrier"></div>
-        <div class="portal-grid"></div>
-        <div class="portal-rift"></div>
-        <div class="portal-veil"></div>
-        <div class="portal-foreground-hint"></div>
-        <div class="portal-flash"></div>
+      <div class="boot-video-stage" aria-hidden="true">
+        <video
+          id="bootIdleVideo"
+          class="boot-video boot-video-idle"
+          playsinline
+          webkit-playsinline="true"
+          preload="auto"
+          disablepictureinpicture
+          disableremoteplayback
+          src="/media/portal/idle.mp4"
+        ></video>
+        <video
+          id="bootWalkVideo"
+          class="boot-video boot-video-walk"
+          playsinline
+          webkit-playsinline="true"
+          preload="auto"
+          disablepictureinpicture
+          disableremoteplayback
+          src="/media/portal/walk_in_animation.mp4"
+        ></video>
+        <div class="boot-idle-overlay">
+          <div class="boot-idle-copy">
+            <p class="boot-kicker">Dark Aether Feed</p>
+            <h2 class="boot-title boot-title-idle">Portal Standing By</h2>
+            <button id="bootEnterPortalBtn" class="boot-cta" type="button" disabled>Enter Portal</button>
+          </div>
+        </div>
       </div>
     </div>
     <div class="overlay">
@@ -106,7 +127,10 @@ const resultName = document.querySelector('#resultName')
 const resultStatus = document.querySelector('#resultStatus')
 const bootLayer = document.querySelector('#bootLayer')
 const bootStartBtn = document.querySelector('#bootStartBtn')
+const bootEnterPortalBtn = document.querySelector('#bootEnterPortalBtn')
 const bootSupportCopy = document.querySelector('#bootSupportCopy')
+const bootIdleVideo = document.querySelector('#bootIdleVideo')
+const bootWalkVideo = document.querySelector('#bootWalkVideo')
 const animationCount = document.querySelector('#animationCount')
 const animationList = document.querySelector('#animationList')
 const errorBanner = document.querySelector('#errorBanner')
@@ -582,74 +606,67 @@ function delay(ms) {
 }
 
 const BOOT_PHASES = {
-  START_SCREEN: 'START_SCREEN',
-  PORTAL_TRANSITION: 'PORTAL_TRANSITION',
+  BLACK_SCREEN: 'BLACK_SCREEN',
+  IDLE_VIDEO: 'IDLE_VIDEO',
+  WALK_VIDEO: 'WALK_VIDEO',
   CRATE_VIEW: 'CRATE_VIEW'
 }
 
-let bootPhase = BOOT_PHASES.START_SCREEN
+const WALK_VIDEO_HANDOFF_THRESHOLD_S = null
+
+let bootPhase = BOOT_PHASES.BLACK_SCREEN
 let sceneReady = false
-let portalTransitionToken = 0
-let portalFlashTimerId = null
-let portalFinishTimerId = null
-
-function getPortalTransitionConfig() {
-  if (prefersReducedMotion) {
-    return {
-      durationMs: 520,
-      flashDelayMs: 210
-    }
-  }
-
-  return {
-    durationMs: 1080,
-    flashDelayMs: 620
-  }
-}
-
-function clearPortalTransitionTimers() {
-  if (portalFlashTimerId) {
-    clearTimeout(portalFlashTimerId)
-    portalFlashTimerId = null
-  }
-  if (portalFinishTimerId) {
-    clearTimeout(portalFinishTimerId)
-    portalFinishTimerId = null
-  }
+const bootMediaReady = {
+  idle: false,
+  walk: false
 }
 
 function updateBootPresentation() {
-  if (!bootLayer || !bootStartBtn || !bootSupportCopy) return
+  if (!bootLayer || !bootStartBtn || !bootSupportCopy || !bootEnterPortalBtn) return
 
   bootLayer.classList.toggle('visible', bootPhase !== BOOT_PHASES.CRATE_VIEW)
-  bootLayer.classList.toggle('boot-phase-start-screen', bootPhase === BOOT_PHASES.START_SCREEN)
-  bootLayer.classList.toggle('boot-phase-portal-transition', bootPhase === BOOT_PHASES.PORTAL_TRANSITION)
+  bootLayer.classList.toggle('boot-phase-black-screen', bootPhase === BOOT_PHASES.BLACK_SCREEN)
+  bootLayer.classList.toggle('boot-phase-idle-video', bootPhase === BOOT_PHASES.IDLE_VIDEO)
+  bootLayer.classList.toggle('boot-phase-walk-video', bootPhase === BOOT_PHASES.WALK_VIDEO)
   bootLayer.classList.toggle('scene-ready', sceneReady)
-  bootLayer.classList.toggle('reduced-motion', prefersReducedMotion)
 
-  if (bootPhase === BOOT_PHASES.START_SCREEN) {
-    bootSupportCopy.textContent = sceneReady
-      ? 'First-person breach protocol. Tear through the barrier, hit the flash, and drop into the mystery crate chamber.'
-      : 'Stabilizing the rupture. Hold position while the chamber locks in.'
-    bootStartBtn.textContent = sceneReady ? 'Enter The Breach' : 'Stabilizing Portal...'
-    bootStartBtn.disabled = !sceneReady
-  } else {
-    bootStartBtn.disabled = true
+  const blackScreenReady = sceneReady && bootMediaReady.idle
+  bootStartBtn.disabled = !(bootPhase === BOOT_PHASES.BLACK_SCREEN && blackScreenReady)
+  bootEnterPortalBtn.disabled = !(bootPhase === BOOT_PHASES.IDLE_VIDEO && bootMediaReady.walk)
+
+  if (bootPhase === BOOT_PHASES.BLACK_SCREEN) {
+    if (!sceneReady) {
+      bootSupportCopy.textContent = 'Syncing portal telemetry and chamber lock.'
+      bootStartBtn.textContent = 'Linking Chamber...'
+    } else if (!bootMediaReady.idle) {
+      bootSupportCopy.textContent = 'Portal feed acquired. Buffering first-person breach loop.'
+      bootStartBtn.textContent = 'Buffering Feed...'
+    } else {
+      bootSupportCopy.textContent = 'Use the first link command to unlock audio and bring up the live breach feed.'
+      bootStartBtn.textContent = 'Link Breach Feed'
+    }
   }
 }
 
 function setBootPhase(nextPhase) {
   bootPhase = nextPhase
-  if (nextPhase !== BOOT_PHASES.PORTAL_TRANSITION && bootLayer) {
-    bootLayer.classList.remove('portal-flash-active')
-  }
   updateBootPresentation()
 }
 
-function finishPortalTransition(token = portalTransitionToken) {
-  if (token !== portalTransitionToken) return
+function pauseBootVideo(video, reset = false) {
+  if (!video) return
+  video.pause()
+  if (reset) {
+    try {
+      video.currentTime = 0
+    } catch (_) {
+      // Some browsers guard seeking until metadata is ready.
+    }
+  }
+}
 
-  clearPortalTransitionTimers()
+function finishBootVideoHandoff() {
+  pauseBootVideo(bootWalkVideo, true)
   introStartTime = 0
   introComplete = false
   playerInRange = false
@@ -658,27 +675,60 @@ function finishPortalTransition(token = portalTransitionToken) {
   setBootPhase(BOOT_PHASES.CRATE_VIEW)
 }
 
-function startPortalTransition() {
-  if (!sceneReady || bootPhase !== BOOT_PHASES.START_SCREEN) return
+function handleBootMediaReady(key) {
+  bootMediaReady[key] = true
+  updateBootPresentation()
+}
 
-  portalTransitionToken += 1
-  const token = portalTransitionToken
-  const { durationMs, flashDelayMs } = getPortalTransitionConfig()
+async function startIdleVideo() {
+  if (!sceneReady || !bootMediaReady.idle || bootPhase !== BOOT_PHASES.BLACK_SCREEN || !bootIdleVideo) return
 
-  clearPortalTransitionTimers()
+  ensureUnlockedFromGesture()
   playerInRange = false
   introComplete = false
   introStartTime = 0
-  setBootPhase(BOOT_PHASES.PORTAL_TRANSITION)
+  pauseBootVideo(bootWalkVideo, true)
 
-  portalFlashTimerId = setTimeout(() => {
-    if (token !== portalTransitionToken || !bootLayer) return
-    bootLayer.classList.add('portal-flash-active')
-  }, flashDelayMs)
+  try {
+    bootIdleVideo.loop = true
+    bootIdleVideo.muted = false
+    bootIdleVideo.volume = 1
+    bootIdleVideo.currentTime = 0
+    setBootPhase(BOOT_PHASES.IDLE_VIDEO)
+    await bootIdleVideo.play()
+  } catch (err) {
+    pauseBootVideo(bootIdleVideo, true)
+    setBootPhase(BOOT_PHASES.BLACK_SCREEN)
+    bootSupportCopy.textContent = 'Video start was blocked. Tap the link command again.'
+    audioState.lastError = err?.message || String(err)
+  }
+}
 
-  portalFinishTimerId = setTimeout(() => {
-    finishPortalTransition(token)
-  }, durationMs)
+async function startWalkVideo() {
+  if (bootPhase !== BOOT_PHASES.IDLE_VIDEO || !bootWalkVideo || !bootMediaReady.walk) return
+
+  ensureUnlockedFromGesture()
+  pauseBootVideo(bootIdleVideo, true)
+
+  try {
+    bootWalkVideo.loop = false
+    bootWalkVideo.muted = false
+    bootWalkVideo.volume = 1
+    bootWalkVideo.currentTime = 0
+    setBootPhase(BOOT_PHASES.WALK_VIDEO)
+    await bootWalkVideo.play()
+  } catch (err) {
+    pauseBootVideo(bootWalkVideo, true)
+    setBootPhase(BOOT_PHASES.IDLE_VIDEO)
+    audioState.lastError = err?.message || String(err)
+  }
+}
+
+function handleWalkVideoTimeUpdate() {
+  if (bootPhase !== BOOT_PHASES.WALK_VIDEO || WALK_VIDEO_HANDOFF_THRESHOLD_S == null || !bootWalkVideo) return
+  if (bootWalkVideo.currentTime >= WALK_VIDEO_HANDOFF_THRESHOLD_S) {
+    finishBootVideoHandoff()
+  }
 }
 
 function markSceneReady() {
@@ -693,16 +743,49 @@ if (reducedMotionQuery?.addEventListener) {
   })
 }
 
-bootStartBtn?.addEventListener('click', (event) => {
-  event.stopPropagation()
-  startPortalTransition()
+;[bootIdleVideo, bootWalkVideo].forEach(video => {
+  if (!video) return
+  video.playsInline = true
+  video.crossOrigin = 'anonymous'
+  video.preload = 'auto'
 })
 
-bootLayer?.addEventListener('click', () => {
-  if (bootPhase === BOOT_PHASES.PORTAL_TRANSITION) {
-    finishPortalTransition()
+bootIdleVideo?.addEventListener('loadeddata', () => {
+  handleBootMediaReady('idle')
+})
+
+bootWalkVideo?.addEventListener('loadeddata', () => {
+  handleBootMediaReady('walk')
+})
+
+bootWalkVideo?.addEventListener('ended', () => {
+  if (bootPhase === BOOT_PHASES.WALK_VIDEO) {
+    finishBootVideoHandoff()
   }
 })
+
+bootWalkVideo?.addEventListener('timeupdate', handleWalkVideoTimeUpdate)
+
+bootStartBtn?.addEventListener('click', (event) => {
+  event.stopPropagation()
+  startIdleVideo()
+})
+
+bootEnterPortalBtn?.addEventListener('click', (event) => {
+  event.stopPropagation()
+  startWalkVideo()
+})
+
+bootIdleVideo?.load()
+bootWalkVideo?.load()
+
+if (bootIdleVideo?.readyState >= 2) {
+  handleBootMediaReady('idle')
+}
+
+if (bootWalkVideo?.readyState >= 2) {
+  handleBootMediaReady('walk')
+}
 
 updateBootPresentation()
 

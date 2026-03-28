@@ -5,6 +5,21 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-28 -- Media-Backed Portal Flow: Black Screen, Idle Feed, Walk Clip, Crate Handoff
+
+**Type:** Surgical portal presentation replacement. `src/main.js`, `src/style.css`, `docs/runtime-test-checklist.md`.
+
+Replaced the visible start presentation with a two-press media-backed FPS portal flow using the repo-local portal files in `public/media/portal/`. The boot flow still lives outside the crate `STATES` machine and still uses the existing boot-layer and `sceneReady` gate, but the visible phases are now `BLACK_SCREEN`, `IDLE_VIDEO`, `WALK_VIDEO`, and `CRATE_VIEW`. The first coded button appears only on a purpose-built black screen and uses the existing audio-unlock path in the same click handler before starting `idle.mp4` as a fullscreen looping attract-mode video with audio preserved. A separate coded `Enter Portal` button appears only over that idle loop.
+
+The old timer-driven faux portal breach presentation was bypassed rather than broadly removed. The new flow uses two dedicated `<video>` elements instead of swapping sources on one element, which allows the idle-to-walk changeover to be a true hard cut with no fade. On the second click, the code pauses and resets the idle video, instantly reveals `walk_in_animation.mp4`, and starts it with audio preserved. The accepted crate intro is still the same one: when the walk clip ends, the code resets `introStartTime`, keeps `introComplete = false`, switches to `CRATE_VIEW`, and lets the original crate camera arrival run unchanged. Press X remains hidden until the walk clip and the existing crate intro have both completed.
+
+What was not changed:
+- The crate `STATES` machine or `startSpin()` / result flow
+- Crate height, hat reveal height, or accepted camera and idle behavior after handoff
+- Spin cadence, crate-open behavior, audio behavior for the actual crate flow, question mark behavior, reveal ritual direction, question mark magic direction, UI polish direction, tiny realness direction, cinder block realism direction, visible support density direction, or COD realism-gap direction
+- Button visibility rules or preview exact-hat checkout behavior
+- Backend, Shopify, Flow, datasets, or the storefront wrapper
+
 ## 2026-03-27 -- Portal Intro Pass: Hybrid Start Screen and Breach Handoff
 
 **Type:** Surgical portal intro pass. `src/main.js`, `src/style.css`, `docs/runtime-test-checklist.md`.
