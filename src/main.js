@@ -29,6 +29,11 @@ let previewSpinsUsed = 0
 const PREVIEW_SPIN_LIMIT = 1
 // Prevent double-submit on finalize
 let finalizeInProgress = false
+let panelPresentationReady = false
+// Winner identity for order/fulfillment (set after each spin)
+let spinWinnerHat = null
+let spinWinnerHatId = null
+let spinWinnerHatName = null
 
 const app = document.querySelector('#app')
 
@@ -39,7 +44,7 @@ app.innerHTML = `
       <div class="panel">
         <div class="panel-header">
           <h1 style="color: white;">CANDY FACTS MYSTERY BOX</h1>
-          <p class="subtitle">Spin the crate and land on a random hat</p>
+          <p id="panelSubtitle" class="subtitle">Spin the crate and land on a random hat</p>
           <p id="eligibilityStatus" class="eligibility-status"></p>
         </div>
         <div class="controls">
@@ -53,7 +58,7 @@ app.innerHTML = `
             <img id="resultImage" alt="Hat preview" />
           </div>
           <div class="result-details">
-            <p class="label">Winner</p>
+            <p id="resultLabel" class="label">Winner</p>
             <h2 id="resultName">Awaiting spin</h2>
             <p id="resultStatus" class="status-line">Status: ready</p>
           </div>
@@ -74,7 +79,9 @@ const openBtn = document.querySelector('#openBtn')
 const closeBtn = document.querySelector('#closeBtn')
 const spinBtn = document.querySelector('#spinBtn')
 const claimBtn = document.querySelector('#claimBtn')
+const panelSubtitle = document.querySelector('#panelSubtitle')
 const resultImage = document.querySelector('#resultImage')
+const resultLabel = document.querySelector('#resultLabel')
 const resultName = document.querySelector('#resultName')
 const resultStatus = document.querySelector('#resultStatus')
 const animationCount = document.querySelector('#animationCount')
@@ -219,52 +226,47 @@ function redirectToCheckout(url) {
 function updateEligibilityUI() {
   if (!eligibilityStatus) return
 
+  let text = ''
+  let background = ''
+  let color = ''
+
   if (isPreviewMode) {
-    eligibilityStatus.textContent = 'Preview Mode'
-    eligibilityStatus.style.background = 'rgba(100, 100, 255, 0.2)'
-    eligibilityStatus.style.color = '#aaf'
-    return
-  }
-
-  if (eligibility.loading) {
-    eligibilityStatus.textContent = 'Checking eligibility...'
-    eligibilityStatus.style.background = 'rgba(255, 255, 100, 0.2)'
-    eligibilityStatus.style.color = '#ffa'
-    return
-  }
-
-  if (eligibility.error) {
-    eligibilityStatus.textContent = eligibility.error
-    eligibilityStatus.style.background = 'rgba(255, 100, 100, 0.2)'
-    eligibilityStatus.style.color = '#faa'
-    return
-  }
-
-  if (!eligibility.loggedIn) {
-    eligibilityStatus.textContent = 'Account not found'
-    eligibilityStatus.style.background = 'rgba(255, 255, 100, 0.2)'
-    eligibilityStatus.style.color = '#ffa'
-    return
-  }
-
-  if (eligibility.hatWon) {
-    eligibilityStatus.textContent = `Hat selected: ${eligibility.hatWon}`
-    eligibilityStatus.style.background = 'rgba(100, 255, 200, 0.2)'
-    eligibilityStatus.style.color = '#afa'
-    return
-  }
-
-  if (eligibility.spinsRemaining > 0) {
+    text = 'Preview Mode'
+    background = 'rgba(100, 100, 255, 0.2)'
+    color = '#aaf'
+  } else if (eligibility.loading) {
+    text = 'Checking eligibility...'
+    background = 'rgba(255, 255, 100, 0.2)'
+    color = '#ffa'
+  } else if (eligibility.error) {
+    text = eligibility.error
+    background = 'rgba(255, 100, 100, 0.2)'
+    color = '#faa'
+  } else if (!eligibility.loggedIn) {
+    text = 'Account not found'
+    background = 'rgba(255, 255, 100, 0.2)'
+    color = '#ffa'
+  } else if (eligibility.hatWon) {
+    text = `Hat selected: ${eligibility.hatWon}`
+    background = 'rgba(100, 255, 200, 0.2)'
+    color = '#afa'
+  } else if (eligibility.spinsRemaining > 0) {
     const s = eligibility.spinsRemaining === 1 ? 'spin' : 'spins'
-    eligibilityStatus.textContent = `${eligibility.spinsRemaining} ${s} remaining`
-    eligibilityStatus.style.background = 'rgba(100, 255, 100, 0.2)'
-    eligibilityStatus.style.color = '#afa'
-    return
+    text = `${eligibility.spinsRemaining} ${s} remaining`
+    background = 'rgba(100, 255, 100, 0.2)'
+    color = '#afa'
+  } else {
+    text = 'No spins available'
+    background = 'rgba(255, 100, 100, 0.2)'
+    color = '#faa'
   }
 
-  eligibilityStatus.textContent = 'No spins available'
-  eligibilityStatus.style.background = 'rgba(255, 100, 100, 0.2)'
-  eligibilityStatus.style.color = '#faa'
+  eligibilityStatus.textContent = text
+  eligibilityStatus.style.background = background
+  eligibilityStatus.style.color = color
+  if (panelPresentationReady) {
+    updatePanelPresentation()
+  }
 }
 
 // Check eligibility on load (purchased mode only)
@@ -808,6 +810,7 @@ function showHat(index) {
       hatDisplayOutline.material.needsUpdate = true
     }
   }
+  updatePanelPresentation()
 }
 
 const STATES = {
@@ -826,10 +829,80 @@ function formatStatus(state) {
   return `Status: ${state}${suffix}`
 }
 
+function withFallbackNote(text) {
+  return usingFallback ? `${text} (fallback crate)` : text
+}
+
+function updatePanelPresentation() {
+  if (!panel || !panelSubtitle || !resultLabel || !resultStatus) return
+
+  const isResultState = [
+    STATES.WINNER_SELECTED,
+    STATES.WINNER_PENDING_CLAIM,
+    STATES.CLAIMING,
+    STATES.CLAIMED,
+    STATES.CLOSING
+  ].includes(currentState)
+  const canPurchasedSpin = !isPreviewMode && eligibility.spinsRemaining > 0 && !eligibility.hatWon
+  const hasSecondaryAction = isResultState && canPurchasedSpin
+  const hasWinner = Boolean(spinWinnerHat)
+  const winnerName = spinWinnerHatName || spinWinnerHat?.name || resultName.textContent
+
+  panel.classList.toggle('preview-result', isPreviewMode && isResultState && hasWinner)
+  panel.classList.toggle('purchased-result', !isPreviewMode && isResultState && hasWinner)
+  panel.classList.toggle('claimed-result', currentState === STATES.CLAIMED)
+  panel.classList.toggle('has-secondary-action', hasSecondaryAction)
+
+  let subtitleText = 'Spin the crate and land on a random hat'
+  let labelText = 'Winner'
+  let statusText = formatStatus(currentState)
+
+  if (currentState === STATES.OPENING) {
+    subtitleText = 'The crate is opening'
+    labelText = 'Mystery Crate'
+    statusText = withFallbackNote('Preparing your spin')
+  } else if (currentState === STATES.SPINNING) {
+    subtitleText = 'The crate is choosing your winner'
+    labelText = 'In Motion'
+    statusText = withFallbackNote('Scanning through the hat pool')
+  } else if (hasWinner && isResultState) {
+    if (isPreviewMode) {
+      if (currentState === STATES.CLAIMING) {
+        subtitleText = 'Opening checkout for this exact hat'
+        labelText = 'Exact Hat Checkout'
+        statusText = withFallbackNote(`Loading checkout for ${winnerName}`)
+      } else {
+        subtitleText = 'Proceed to checkout for this exact hat'
+        labelText = 'Preview Result'
+        statusText = withFallbackNote(`Proceed to Checkout adds ${winnerName}`)
+      }
+    } else if (currentState === STATES.CLAIMED) {
+      subtitleText = 'Your result is locked in for fulfillment'
+      labelText = 'Saved Result'
+      statusText = withFallbackNote('Saved for fulfillment')
+    } else if (currentState === STATES.CLAIMING) {
+      subtitleText = 'Saving your winning hat'
+      labelText = 'Saving Result'
+      statusText = withFallbackNote('Locking in result for fulfillment')
+    } else if (hasSecondaryAction) {
+      subtitleText = 'Save this hat now, or spin again for one more shot'
+      labelText = 'Current Pick'
+      statusText = withFallbackNote('Save Result locks in this exact hat')
+    } else {
+      subtitleText = 'Save this hat to lock in your final result'
+      labelText = 'Final Hat'
+      statusText = withFallbackNote('Ready to save for fulfillment')
+    }
+  }
+
+  panelSubtitle.textContent = subtitleText
+  resultLabel.textContent = labelText
+  resultStatus.textContent = statusText
+}
+
 function setState(state) {
   const previousState = currentState
   currentState = state
-  resultStatus.textContent = formatStatus(state)
   
   if (panel) {
     const isResultState = [
@@ -852,6 +925,7 @@ function setState(state) {
   }
   
   updateControls()
+  updatePanelPresentation()
 }
 
 // Helper: explicitly control question marks visibility (Part A)
@@ -1069,11 +1143,6 @@ let spinWinnerIndex = 0
 let spinTotalSteps = 0
 let spinStep = 0
 
-// Winner identity for order/fulfillment (set after each spin)
-let spinWinnerHat = null
-let spinWinnerHatId = null
-let spinWinnerHatName = null
-
 /**
  * Smooth ease-out for raffle/prize-wheel feel
  * Starts fast, immediately begins decelerating, settles into final hat.
@@ -1219,6 +1288,7 @@ async function startSpin() {
   spinAnimationId = requestAnimationFrame(animateSpin)
 }
 
+panelPresentationReady = true
 showHat(currentHatIndex)
 setState(STATES.READY)
 

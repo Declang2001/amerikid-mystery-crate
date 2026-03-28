@@ -32,6 +32,8 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Winner hat shows with glow pulse
 - [ ] Result panel slides up showing hat image and name
 - [ ] Result card gets a subtle winner accent without shifting layout or affecting button visibility
+- [ ] Result panel copy changes by state without changing panel timing or introducing any new controls
+- [ ] Result card and result media feel more premium while keeping the crate as the visual focal point
 
 ---
 
@@ -55,6 +57,7 @@ Each item should be tested manually unless automated tests exist.
 - [ ] User gets 1 preview spin
 - [ ] Preview spin plays full animation and reveals a hat
 - [ ] After preview result, only "Proceed to Checkout" is visible (no Spin Again, no generic spin button)
+- [ ] Preview result panel clearly communicates that Proceed to Checkout forwards the exact revealed hat
 - [ ] Clicking "Proceed to Checkout" closes the crate, then redirects to Shopify using the exact revealed hat variant ID with quantity 1
 - [ ] Shopify checkout contains the exact revealed hat variant, not a generic mystery hat product or wrong variant
 - [ ] Preview result is NOT persisted to Shopify
@@ -68,6 +71,7 @@ Each item should be tested manually unless automated tests exist.
 - [ ] First spin decrements to `crate_spins:1`, reveals a hat
 - [ ] After result reveal, crate stays open (no auto-close)
 - [ ] After first result (1 spin remaining), user sees both "Spin Again" and "Save Result"
+- [ ] When both purchased actions are visible, "Save Result" reads as the primary action and "Spin Again" reads as the secondary action without changing the button set
 - [ ] "Spin Again" is hidden when no purchased spins remain
 - [ ] "Spin Again" closes the crate, hides the hat, then starts the next spin cleanly
 - [ ] "Spin Again" discards first result, consumes second spin, reveals new hat
@@ -79,6 +83,7 @@ Each item should be tested manually unless automated tests exist.
 - [ ] If user saves after first spin (skipping second), second spin is forfeited
 - [ ] `/api/finalize` rejects if hat already finalized (no overwrite)
 - [ ] `/api/finalize` rejects invalid hat IDs (not in allowed set)
+- [ ] After finalize, the existing panel gives a stronger locked-in confirmation without any modal, overlay, or extra step
 
 ---
 
@@ -123,6 +128,7 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Responsive layout works at mobile viewport inside iframe
 - [ ] Question mark glow animation remains smooth in mobile iframe context with no flashing or alias shimmer
 - [ ] Winner reveal effect remains smooth in mobile iframe context with no obvious frame drops or flashing
+- [ ] Polished panel layout remains readable and unclipped in mobile iframe context, including long subtitle and status copy
 
 ---
 

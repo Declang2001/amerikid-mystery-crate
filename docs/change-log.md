@@ -5,6 +5,24 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- UI Polish Pass: Stronger Panel Messaging and CTA Hierarchy
+
+**Type:** Surgical UI presentation pass. `src/main.js`, `src/style.css`, `docs/runtime-test-checklist.md`.
+
+Retuned only the existing result panel so it feels more intentional and premium without changing panel timing, button logic, or checkout flow. Added lightweight refs for the existing subtitle and result label, then introduced a small `updatePanelPresentation()` helper in `src/main.js` that derives panel copy and CSS-driving classes from the current state, preview vs purchased mode, entitlement state, and the current winning hat. The helper is called from the smallest safe touchpoints: `showHat()`, `setState()`, and `updateEligibilityUI()`.
+
+The panel now communicates more clearly inside the existing layout. Preview results explicitly explain that checkout will use the exact revealed hat. Purchased results now distinguish between a current pick, a final hat, an in-progress save, and a saved result, which gives the purchased path a stronger locked-in confirmation using the existing panel only. Added class-driven CSS in `src/style.css` so the result card, result media, and existing CTA pair read with clearer hierarchy and slightly more premium framing. When both purchased actions are visible, "Save Result" reads as primary and "Spin Again" reads as secondary without altering visibility logic or labels.
+
+What was not changed:
+- Panel visibility timing or READY-state visibility
+- Button visibility logic or accepted CTA labels
+- Spin cadence or duration math
+- Hat reveal height or Y targets
+- Crate-open behavior or state machine behavior
+- Audio behavior and iframe unlock flow
+- Preview exact-hat checkout routing
+- Reveal ritual direction, question mark magic direction, atmosphere direction, background readability, physical/material direction, backend, Shopify, Flow, datasets, or the storefront wrapper
+
 ## 2026-03-27 -- Question Mark Magic Pass: Layered Glow Energy Without Logic Changes
 
 **Type:** Surgical visual enhancement pass. `src/main.js`, `docs/runtime-test-checklist.md`.
