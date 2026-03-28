@@ -163,7 +163,8 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Support pockets feel natural and slightly irregular without looking like painted blobs on the block tops
 - [ ] Support blocks read as real hollow-core cinder blocks from the front three-quarter camera instead of solid boxes with fake top holes
 - [ ] Support block realism preserves the exact crate elevation and does not change the hat reveal height
-- [ ] Additional supports now read clearly at the front-left and front-right lower corners from the live camera angle without moving the original four corner supports
+- [ ] The live camera now reads a denser support bed with at least 6 clearly readable cinder blocks under the crate
+- [ ] Visible support presence reads across front-left, front-center, and front-right rather than collapsing into just two obvious supports
 - [ ] Added supports keep the same top support plane and do not create a grounding mismatch against the existing contact shadow
 - [ ] Lid open timing and motion still match the accepted cadence after the material pass
 

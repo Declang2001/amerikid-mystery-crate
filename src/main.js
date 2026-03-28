@@ -2878,13 +2878,15 @@ function createFallbackCrate() {
     return blockGroup
   }
 
-  // Place 4 corner supports plus 2 extra front-corner-visible supports.
+  // Place 4 corner supports plus a denser front-visible support bed.
   const block1 = createCinderBlock(-0.7, -0.35, 0.05)
   const block2 = createCinderBlock(0.65, -0.38, -0.08)
   const block3 = createCinderBlock(-0.68, 0.32, 0.12)
   const block4 = createCinderBlock(0.72, 0.35, -0.03)
   const block5 = createCinderBlock(-1.02, 0.52, 0.08)
   const block6 = createCinderBlock(1.02, 0.54, -0.06)
+  const block7 = createCinderBlock(-0.34, 0.46, 0.05)
+  const block8 = createCinderBlock(0.36, 0.48, -0.03)
 
   // Add blocks to scene (not to group, so they don't scale with crate)
   scene.add(block1)
@@ -2893,6 +2895,8 @@ function createFallbackCrate() {
   scene.add(block4)
   scene.add(block5)
   scene.add(block6)
+  scene.add(block7)
+  scene.add(block8)
 
   // Lift crate to sit on blocks
   group.position.y = blockH

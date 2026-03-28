@@ -5,6 +5,22 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-27 -- Support Density Correction: Denser Visible Cinder Block Bed From the Live Camera
+
+**Type:** Surgical support-density correction. `src/main.js`, `docs/runtime-test-checklist.md`.
+
+Corrected the support arrangement again by increasing the number of clearly readable blocks from the fixed live camera. The earlier corrective passes improved corner support read, but the scene still felt under-supported because the added blocks read more like isolated accents than a true support bed. This pass keeps the original four hollow-core supports and the two front-corner-visible supports, then adds two more front-visible mid supports so the camera now reads a denser row of blocks across the front-left, front-center, and front-right of the crate.
+
+The hollow-core cinder block builder is unchanged, the supports still live outside `crateRoot`, and `group.position.y = blockH` remains unchanged, so crate height and hat reveal height stay locked. The Tiny Realness contact shadow was left untouched because this pass increases visible support density without changing crate elevation or the underlying rendering approach.
+
+What was not changed:
+- `blockW`, `blockH`, or `blockD`
+- Crate height or hat reveal height
+- Camera behavior, cadence, crate-open behavior, or state machine behavior
+- Contact-shadow logic
+- Audio behavior and iframe unlock flow
+- Button visibility rules, preview exact-hat checkout behavior, reveal ritual direction, question mark magic direction, UI polish direction, backend, Shopify, Flow, datasets, or the storefront wrapper
+
 ## 2026-03-27 -- Support Arrangement Correction: Front Corner Support Read From the Live Camera
 
 **Type:** Surgical support-arrangement correction. `src/main.js`, `docs/runtime-test-checklist.md`.
