@@ -27,6 +27,10 @@ let isPurchasedSpin = false
 // Track preview spins used this session (local only, resets on refresh)
 let previewSpinsUsed = 0
 const PREVIEW_SPIN_LIMIT = 1
+
+// Inventory-aware hat availability (fetched from /api/available-hats)
+let availableHatIds = null // null = not yet fetched, Set = fetched
+let availabilityError = false
 // Prevent double-submit on finalize
 let finalizeInProgress = false
 let panelPresentationReady = false
@@ -212,6 +216,23 @@ async function finalizeSpinResult(hatId) {
   }
 }
 
+async function fetchAvailableHats() {
+  try {
+    const res = await fetch('/api/available-hats')
+    if (!res.ok) throw new Error(`API error ${res.status}`)
+    const data = await res.json()
+    if (data.available === null || !Array.isArray(data.available)) {
+      throw new Error('Invalid response')
+    }
+    availableHatIds = new Set(data.available)
+    availabilityError = false
+  } catch (err) {
+    console.error('Available hats fetch failed:', err)
+    availableHatIds = null
+    availabilityError = true
+  }
+}
+
 function normalizeShopOrigin(value) {
   if (!value) return null
   try {
@@ -318,6 +339,9 @@ if (!isPreviewMode && customerId) {
 } else {
   updateEligibilityUI()
 }
+
+// Fetch hat inventory availability on load (both preview and purchased)
+fetchAvailableHats()
 
 openBtn.style.display = 'none'
 closeBtn.style.display = ''
@@ -1466,6 +1490,22 @@ async function startSpin() {
     isPurchasedSpin = true
   }
 
+  // --- Inventory Availability Check (fresh fetch) ---
+  await fetchAvailableHats()
+  if (availabilityError || availableHatIds === null) {
+    // Fail closed: cannot verify hat availability
+    if (!isPreviewMode && isPurchasedSpin) {
+      // Undo the consumed spin would require server logic, so just warn
+      console.error('Availability check failed after spin consumed')
+    }
+    alert('Unable to verify hat availability. Please refresh and try again.')
+    return
+  }
+  if (availableHatIds.size === 0) {
+    alert('All mystery hats are currently unavailable. Please check back later.')
+    return
+  }
+
   // Cancel any pending auto-close
   cancelAutoClose()
   // Clear any existing spin
@@ -1489,8 +1529,13 @@ async function startSpin() {
   await openCrate(openMs)
   await delay(POST_OPEN_PAUSE_MS)
 
-  // Pre-select winner before spin starts
-  spinWinnerIndex = selectWeightedHat()
+  // Pre-select winner before spin starts (filtered by inventory availability)
+  spinWinnerIndex = selectWeightedHat(availableHatIds)
+  if (spinWinnerIndex < 0) {
+    // All hats became unavailable between the check and selection
+    alert('All mystery hats are currently unavailable. Please check back later.')
+    return
+  }
   spinWinnerHat = hats[spinWinnerIndex]
   spinWinnerHatId = spinWinnerHat.id
   spinWinnerHatName = spinWinnerHat.name

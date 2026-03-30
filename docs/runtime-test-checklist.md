@@ -191,6 +191,28 @@ Each item should be tested manually unless automated tests exist.
 
 ---
 
+## 13. Inventory-Aware Hat Pool
+
+- [ ] `read_products` scope added to Partners app and verified via Client Credentials Grant
+- [ ] Hidden mystery-hat product variant IDs in `api/_lib/allowed-hats.js` match the Shopify admin
+- [ ] `GET /api/available-hats` returns correct hat IDs for current inventory state
+- [ ] `GET /api/available-hats` returns empty `available` array when all 15 variants have 0 inventory
+- [ ] `GET /api/available-hats` CORS headers match existing endpoint pattern
+- [ ] Combo spin winner is always from the available set
+- [ ] Preview spin winner is always from the available set
+- [ ] Setting one variant to 0 inventory removes that hat from possible spin outcomes
+- [ ] Spin blocked with alert when available set is empty
+- [ ] Spin blocked with alert when `/api/available-hats` fetch fails
+- [ ] Spin animation reel still cycles all 15 hats visually
+- [ ] No visual/audio/cadence/camera changes from this pass
+- [ ] Preview exact-hat checkout wiring unchanged
+- [ ] Purchased finalize wiring unchanged
+- [ ] State machine unchanged
+- [ ] Portal flow unchanged
+- [ ] Storefront wrapper unchanged
+
+---
+
 ## Notes
 
 - Items marked with **Iframe test** or **iOS Safari test** require testing in the actual
@@ -199,3 +221,5 @@ Each item should be tested manually unless automated tests exist.
   customer with entitlement
 - Some items in this checklist correspond to features that do not exist yet (spin count,
   durable persistence, preview CTA). Those items will fail until implementation is complete.
+- Inventory-aware pool tests require `read_products` scope and valid inventory data on the
+  hidden mystery-hat product

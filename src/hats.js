@@ -39,14 +39,22 @@ const hats = [
 ]
 
 /**
- * Select a random hat using weighted probability
- * @returns {number} Index of selected hat
+ * Select a random hat using weighted probability.
+ * When availableIds is provided, hats not in the set get effective weight 0.
+ * The hats array itself is never mutated.
+ *
+ * @param {Set<string>|null} [availableIds] - Optional set of hat IDs to allow
+ * @returns {number} Index of selected hat, or -1 if no hats are available
  */
-export function selectWeightedHat() {
-  const totalWeight = hats.reduce((sum, h) => sum + h.weight, 0)
+export function selectWeightedHat(availableIds) {
+  const weights = hats.map(h =>
+    availableIds ? (availableIds.has(h.id) ? h.weight : 0) : h.weight
+  )
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0)
+  if (totalWeight <= 0) return -1
   let random = Math.random() * totalWeight
-  for (let i = 0; i < hats.length; i++) {
-    random -= hats[i].weight
+  for (let i = 0; i < weights.length; i++) {
+    random -= weights[i]
     if (random <= 0) return i
   }
   return hats.length - 1

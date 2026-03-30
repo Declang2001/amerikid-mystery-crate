@@ -5,6 +5,27 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-30 -- Inventory-Aware Mystery Hat Pool
+
+**Type:** Surgical inventory-awareness pass. `api/_lib/shopify.js`, `api/_lib/allowed-hats.js`, `api/available-hats.js` (new), `src/hats.js`, `src/main.js`, `docs/runtime-test-checklist.md`.
+
+Added a new server-side endpoint (`GET /api/available-hats`) that queries the Shopify GraphQL Admin API for the hidden 15-variant mystery-hat product's inventory levels and returns the list of hat IDs whose variant has inventory > 0. The client fetches this list at page load and again at the start of each spin. `selectWeightedHat()` now accepts an optional `availableIds` set parameter that zeros out weights for excluded hats without mutating the main hats array. The spin animation reel still cycles all 15 hats visually, but the pre-selected winner is guaranteed to be from the available set.
+
+If the availability endpoint fails or returns no available hats, the spin is blocked with a user-facing alert. The strategy is fail-closed: if inventory truth cannot be verified, the spin does not proceed.
+
+Server-side changes: added `VARIANT_TO_HAT_ID` mapping to `allowed-hats.js`, added `getVariantInventory()` GraphQL query to `shopify.js`, created new `available-hats.js` endpoint. Requires `read_products` scope on the Partners app.
+
+Client-side changes: added `availableHatIds` and `availabilityError` state, added `fetchAvailableHats()`, added availability re-fetch and gate in `startSpin()`, passed available set to `selectWeightedHat()`.
+
+What was not changed:
+- The crate `STATES` machine or result flow
+- Crate height, hat reveal height, or accepted camera and idle behavior
+- Spin cadence, crate-open behavior, audio behavior for the actual crate flow, question mark behavior, reveal ritual direction, question mark magic direction, UI polish direction, tiny realness direction, cinder block realism direction, visible support density direction, or COD realism-gap direction
+- Button visibility rules or preview exact-hat checkout wiring
+- Purchased finalize path or `claim-spin.js`
+- Portal flow, atmosphere, background readability, or physical/material direction
+- The storefront wrapper
+
 ## 2026-03-28 -- Portal Copy Correction and Walk-Video Handoff Smoothing
 
 **Type:** Surgical copy fix and handoff fade. `src/main.js`, `src/style.css`, `docs/runtime-test-checklist.md`.

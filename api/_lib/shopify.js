@@ -284,4 +284,64 @@ export async function finalizeResult(customerId, hatId) {
   return { ok: true }
 }
 
+/**
+ * Query inventory for a list of Shopify variant IDs via GraphQL Admin API.
+ * Returns a Map of variantId -> inventoryQuantity for each queried variant.
+ * Requires `read_products` scope on the app.
+ *
+ * @param {string[]} variantIds - Numeric Shopify variant IDs
+ * @returns {Promise<Map<string, number>>}
+ */
+export async function getVariantInventory(variantIds) {
+  if (!variantIds || variantIds.length === 0) {
+    return new Map()
+  }
+
+  const accessToken = await getAccessToken()
+
+  // Build GraphQL query using variant GIDs
+  const gids = variantIds.map(id => `"gid://shopify/ProductVariant/${id}"`)
+  const query = `{
+    nodes(ids: [${gids.join(', ')}]) {
+      ... on ProductVariant {
+        id
+        inventoryQuantity
+      }
+    }
+  }`
+
+  const url = `https://${SHOP_DOMAIN}/admin/api/${API_VERSION}/graphql.json`
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'X-Shopify-Access-Token': accessToken,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ query })
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Shopify GraphQL error ${res.status}: ${text}`)
+  }
+
+  const json = await res.json()
+
+  if (json.errors && json.errors.length > 0) {
+    throw new Error(`Shopify GraphQL errors: ${JSON.stringify(json.errors)}`)
+  }
+
+  const result = new Map()
+  const nodes = json.data?.nodes || []
+  for (const node of nodes) {
+    if (!node || !node.id) continue
+    // Extract numeric ID from GID (gid://shopify/ProductVariant/123)
+    const numericId = node.id.split('/').pop()
+    result.set(numericId, node.inventoryQuantity ?? 0)
+  }
+
+  return result
+}
+
 export { TAG_PREFIX_SPINS, TAG_PREFIX_HAT_WON }
