@@ -5,6 +5,22 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-03-30 -- Fix Inventory Gate Before Spin Consumption
+
+**Type:** Surgical ordering fix. `src/main.js`, `docs/runtime-test-checklist.md`.
+
+Fixed a launch-blocking ordering bug in `startSpin()` where the inventory availability check (`fetchAvailableHats()`) ran after the purchased spin had already been consumed via `/api/consume-spin`. If the availability check then failed or returned empty, the customer would lose a spin without receiving a result. Moved the availability check before the eligibility consumption block so a purchased spin is never decremented unless hat availability has already been successfully verified. Preview path ordering was already safe (local counter only, no API consumption), but now both paths share the same guard-first structure.
+
+What was not changed:
+- The crate `STATES` machine or result flow
+- Crate height, hat reveal height, or accepted camera and idle behavior
+- Spin cadence, crate-open behavior, audio behavior, question mark behavior
+- Button visibility rules or preview exact-hat checkout wiring
+- Purchased finalize path
+- Portal flow, atmosphere, or visual direction
+- The inventory-aware architecture, endpoint, or filtering logic
+- The storefront wrapper
+
 ## 2026-03-30 -- Inventory-Aware Mystery Hat Pool
 
 **Type:** Surgical inventory-awareness pass. `api/_lib/shopify.js`, `api/_lib/allowed-hats.js`, `api/available-hats.js` (new), `src/hats.js`, `src/main.js`, `docs/runtime-test-checklist.md`.

@@ -1468,6 +1468,17 @@ async function startSpin() {
     return
   }
 
+  // --- Inventory Availability Check (before any spin consumption) ---
+  await fetchAvailableHats()
+  if (availabilityError || availableHatIds === null) {
+    alert('Unable to verify hat availability. Please refresh and try again.')
+    return
+  }
+  if (availableHatIds.size === 0) {
+    alert('All mystery hats are currently unavailable. Please check back later.')
+    return
+  }
+
   // --- Eligibility Check ---
   if (isPreviewMode) {
     // Preview path: local-only, no API calls
@@ -1481,29 +1492,13 @@ async function startSpin() {
     if (eligibility.spinsRemaining <= 0) {
       return
     }
-    // Consume one purchased spin via API
+    // Consume one purchased spin via API (safe: availability already verified above)
     const consumed = await consumeSpinEntitlement()
     if (!consumed) {
       await fetchEligibility()
       return
     }
     isPurchasedSpin = true
-  }
-
-  // --- Inventory Availability Check (fresh fetch) ---
-  await fetchAvailableHats()
-  if (availabilityError || availableHatIds === null) {
-    // Fail closed: cannot verify hat availability
-    if (!isPreviewMode && isPurchasedSpin) {
-      // Undo the consumed spin would require server logic, so just warn
-      console.error('Availability check failed after spin consumed')
-    }
-    alert('Unable to verify hat availability. Please refresh and try again.')
-    return
-  }
-  if (availableHatIds.size === 0) {
-    alert('All mystery hats are currently unavailable. Please check back later.')
-    return
   }
 
   // Cancel any pending auto-close

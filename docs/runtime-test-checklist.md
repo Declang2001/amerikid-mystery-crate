@@ -112,6 +112,7 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Double-click on finalize button does not send two API calls
 - [ ] API returns clear error if customer ID is invalid
 - [ ] API returns clear error if customer has no entitlement
+- [ ] Purchased spin is never consumed if hat availability check fails or returns empty
 
 ---
 
