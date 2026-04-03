@@ -568,14 +568,19 @@ function createAudioOverlay() {
     backdrop-filter: blur(4px);
   `
 
-  // Overlay tap handler - retryable until unlock succeeds
+  // Overlay tap handler - always dismisses after first tap.
+  // In cross-origin iframes (e.g. Shopify), Safari may reject even muted
+  // play() calls, so waiting for unlock success would block forever.
+  // Passive unlock listeners on document (pointerdown/touchstart) will
+  // continue retrying on subsequent user gestures, so audio will unlock
+  // by the time it is actually needed (e.g. the boot "Click To Enter" tap).
   function handleOverlayTap(e) {
     e.stopPropagation()
     e.preventDefault()
     audioLog('Overlay tap')
     tryUnlockAudio()
-    // Only hide if unlock actually succeeded
-    // If not, overlay stays for retry
+    // Always dismiss: passive listeners handle retry if unlock failed
+    hideAudioOverlay()
   }
 
   audioOverlay.addEventListener('pointerdown', handleOverlayTap, { capture: true })

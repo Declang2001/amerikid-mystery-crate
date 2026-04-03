@@ -156,6 +156,7 @@ The crate must durably persist the final purchased hat result.
 | README.md describes old spin-era product | Stale |
 | Copy in `src/main.js` says "Log in to Claim", "Buy a Spin to Claim" | Stale |
 | `src/hats.js` has 5 placeholder hats | Fixed: 15 real hats with IDs, names, paths, and mainline flag |
+| Iframe audio overlay blocks interaction permanently if unlock fails | Fixed: overlay now always dismisses on first tap; passive listeners retry unlock on subsequent gestures |
 | Theme wrapper hard-locked with "Unlocking soon." overlay | Intentional for now |
 
 ---

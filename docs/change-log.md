@@ -5,6 +5,29 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-02 -- Fix Iframe Audio Overlay Blocking Interaction
+
+**Type:** Surgical bug fix. `src/main.js`.
+
+Fixed a launch-blocking bug where the "Tap to enable sound" overlay permanently blocked all interaction inside the Shopify storefront iframe. The overlay's tap handler previously waited for `tryUnlockAudio()` to succeed before dismissing. In cross-origin iframe contexts (e.g. Safari on Shopify), the muted play() calls used for unlock can be rejected by autoplay policy, causing `audioState.unlocked` to stay false and the overlay to remain on screen forever with no fallback.
+
+The fix changes the overlay tap handler to always dismiss the overlay after the first tap, regardless of whether the synchronous unlock attempt succeeded. The existing passive unlock listeners on `document` (pointerdown/touchstart) continue retrying on every subsequent user gesture, so audio will unlock by the time it is actually needed (e.g. when the user taps "Click To Enter" on the boot screen, or triggers a spin).
+
+The direct Vercel behavior is unchanged: the overlay still shows in iframe context, the first tap still attempts unlock, and if unlock succeeds immediately the experience is identical to before.
+
+What was not changed:
+- The `tryUnlockAudio()` function or its play/pause/restore pattern
+- The passive unlock listeners on document
+- The `ensureUnlockedFromGesture()` call in boot flow and spin handlers
+- The boot phase flow (BLACK_SCREEN, IDLE_VIDEO, WALK_VIDEO, CRATE_VIEW)
+- The crate STATES machine or startSpin() / result flow
+- Button visibility rules, preview exact-hat checkout, or purchased finalize path
+- Audio SFX system, spin audio, or any audio file references
+- Portal flow, atmosphere, or visual direction
+- Backend, Shopify, Flow, datasets, or the storefront wrapper
+
+---
+
 ## 2026-03-30 -- Fix Inventory Gate Before Spin Consumption
 
 **Type:** Surgical ordering fix. `src/main.js`, `docs/runtime-test-checklist.md`.
