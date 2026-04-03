@@ -5,6 +5,33 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-02 -- Suppress Text Selection and Tap Highlight on Prompt and Canvas for Iframe
+
+**Type:** Surgical CSS-only bug fix. `src/main.js`.
+
+Added four inline style properties to the Press X prompt div and four programmatic style properties to the canvas element to suppress browser text-selection and tap-highlight behaviors that prevented reliable spin triggering in cross-origin Safari iframe contexts (Shopify storefront preview).
+
+The prompt remains a `<div>` -- an earlier attempt to convert it to `<button>` caused a visual regression because `src/style.css` has a global `button` rule that applies panel-button styling to all button elements. That commit was reverted. This fix achieves the same interaction improvement through CSS-only properties that do not change the element type or visual appearance.
+
+Properties added to the prompt inline styles: `-webkit-user-select: none`, `user-select: none`, `-webkit-tap-highlight-color: transparent`, `touch-action: manipulation`.
+
+Properties added to the canvas via JS: `webkitUserSelect`, `userSelect`, `webkitTapHighlightColor`, `touchAction`.
+
+What was not changed:
+- The prompt element type (remains `<div>`)
+- The prompt visual appearance (no new background, border, padding, or layout)
+- The `tryStartSpinFromInput()` function or `startSpin()` logic
+- The pointerdown + click event listener wiring
+- The canvas tabindex/focus behavior
+- The audio unlock system
+- The boot phase flow
+- The READY-state gating or playerInRange logic
+- Button visibility rules, preview exact-hat checkout, or purchased finalize path
+- Portal flow, atmosphere, or visual direction
+- Backend, Shopify, Flow, datasets, or the storefront wrapper
+
+---
+
 ## 2026-04-02 -- Fix Iframe Spin Input Delivery (Press X / Prompt Click / Canvas Tap)
 
 **Type:** Surgical bug fix. `src/main.js`.
