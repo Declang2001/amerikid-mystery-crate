@@ -366,25 +366,40 @@ pressXPrompt.style.cssText = `
 `
 document.body.appendChild(pressXPrompt)
 
-pressXPrompt.addEventListener('click', () => {
-  if (currentState === STATES.READY && playerInRange) {
-    startSpin()
-  }
-})
+// --- Spin input handlers ---
+// In cross-origin iframes (e.g. Shopify), iOS Safari may not reliably
+// deliver 'click' events to non-interactive elements (<div>, <canvas>).
+// 'pointerdown' fires earlier and more reliably in all iframe contexts.
+// A one-shot guard prevents double-invocation when both fire for the
+// same gesture. The existing 'click' listeners are kept as a fallback
+// for environments where pointerdown is not supported.
+
+let spinInputConsumed = false
+
+function tryStartSpinFromInput() {
+  if (spinInputConsumed) return
+  if (currentState !== STATES.READY || !playerInRange) return
+  spinInputConsumed = true
+  // Reset the guard after the current event cycle so the next gesture works
+  requestAnimationFrame(() => { spinInputConsumed = false })
+  startSpin()
+}
+
+pressXPrompt.addEventListener('pointerdown', tryStartSpinFromInput)
+pressXPrompt.addEventListener('click', tryStartSpinFromInput)
+
+canvas.addEventListener('pointerdown', tryStartSpinFromInput)
+canvas.addEventListener('click', tryStartSpinFromInput)
 
 window.addEventListener('keydown', (e) => {
   if (e.key === 'x' || e.key === 'X') {
-    if (currentState === STATES.READY && playerInRange) {
-      startSpin()
-    }
+    tryStartSpinFromInput()
   }
 })
 
-canvas.addEventListener('click', () => {
-  if (currentState === STATES.READY && playerInRange) {
-    startSpin()
-  }
-})
+// Allow canvas to receive keyboard focus in iframe contexts
+canvas.setAttribute('tabindex', '0')
+canvas.style.outline = 'none'
 
 const spinAudio = new Audio('/audio/sound.mp3')
 spinAudio.preload = 'auto'
@@ -704,6 +719,11 @@ function finishBootVideoHandoff() {
     camera.lookAt(cameraTargetCurrent)
   }
   setBootPhase(BOOT_PHASES.CRATE_VIEW)
+  // In iframe contexts, explicitly move focus into the crate app so
+  // keyboard events (e.g. X key) are received by this document.
+  if (isEmbedded && canvas) {
+    requestAnimationFrame(() => canvas.focus({ preventScroll: true }))
+  }
 }
 
 function beginWalkFade() {
