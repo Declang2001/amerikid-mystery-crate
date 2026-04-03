@@ -5,6 +5,22 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-02 -- Fix mode selection: logged-in zero-spin users fall back to preview
+
+**Type:** Bug fix. `src/main.js`.
+
+`isPreviewMode` was a `const` set at page load based only on URL params. A logged-in customer with `customer_id` but no `crate_spins:*` tag and no `crate_hat_won:*` tag entered the purchased path permanently, where `eligibility.spinsRemaining <= 0` caused `startSpin()` to silently return. The user could click the crate but nothing happened.
+
+Fix: changed `isPreviewMode` from `const` to `let`. After `fetchEligibility()` succeeds, if `spinsRemaining === 0` and `hatWon` is null, `isPreviewMode` is set to `true`. The user then gets the standard preview experience (1 local non-binding spin, "Proceed to Checkout" CTA) instead of a dead-end zero-spin purchased path.
+
+What was not changed:
+- Purchased path behavior for users who have spins or a saved win
+- Preview path behavior for users without `customer_id`
+- Backend, API endpoints, Shopify tags, or entitlement logic
+- Portal flow, crate scene, camera, audio, spin mechanic, or any visual element
+
+---
+
 ## 2026-04-02 -- Fix Iframe Audio Overlay Blocking Interaction
 
 **Type:** Surgical bug fix. `src/main.js`.
