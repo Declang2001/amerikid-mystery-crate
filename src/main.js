@@ -8,9 +8,9 @@ const urlParams = new URLSearchParams(window.location.search)
 const customerId = urlParams.get('customer_id') || ''
 const demoOverride = urlParams.get('demo') === '1'
 
-// Preview mode: no customer_id OR demo=1 override
+// Preview mode: no customer_id OR demo=1 override OR logged-in with no spins and no saved win.
 // Preview users get 1 local non-binding spin. No API calls.
-const isPreviewMode = !customerId || demoOverride
+let isPreviewMode = !customerId || demoOverride
 
 // Eligibility state (updated on load for purchased mode)
 const eligibility = {
@@ -159,6 +159,11 @@ async function fetchEligibility() {
     eligibility.hatWon = data.hat_won || null
     eligibility.checked = true
     eligibility.error = null
+
+    // Logged-in user with no purchased spins and no saved win: fall back to preview
+    if (eligibility.spinsRemaining === 0 && !eligibility.hatWon) {
+      isPreviewMode = true
+    }
   } catch (err) {
     eligibility.error = 'Failed to check eligibility'
     console.error('Eligibility fetch failed:', err)
