@@ -363,10 +363,6 @@ pressXPrompt.style.cssText = `
   font-family: Impact, Haettenschweiler, 'Arial Black', sans-serif;
   letter-spacing: 1px;
   white-space: nowrap;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
 `
 document.body.appendChild(pressXPrompt)
 
@@ -401,14 +397,9 @@ window.addEventListener('keydown', (e) => {
   }
 })
 
-// Allow canvas to receive keyboard focus in iframe contexts and suppress
-// text-selection / tap-highlight behaviors that interfere in Safari iframes
+// Allow canvas to receive keyboard focus in iframe contexts
 canvas.setAttribute('tabindex', '0')
 canvas.style.outline = 'none'
-canvas.style.webkitUserSelect = 'none'
-canvas.style.userSelect = 'none'
-canvas.style.webkitTapHighlightColor = 'transparent'
-canvas.style.touchAction = 'manipulation'
 
 const spinAudio = new Audio('/audio/sound.mp3')
 spinAudio.preload = 'auto'
