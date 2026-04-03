@@ -346,11 +346,7 @@ fetchAvailableHats()
 openBtn.style.display = 'none'
 closeBtn.style.display = ''
 
-// Use a <button> so the prompt is natively interactive in all iframe
-// contexts.  Safari treats <div> taps as text selection in cross-origin
-// iframes; a <button> receives click/pointerdown reliably.
-const pressXPrompt = document.createElement('button')
-pressXPrompt.type = 'button'
+const pressXPrompt = document.createElement('div')
 pressXPrompt.innerHTML = `Press <span style="display: inline-block; width: 24px; height: 24px; background: #4a90e2; border-radius: 50%; color: white; text-align: center; line-height: 24px; font-weight: bold; margin: 0 4px;">X</span> for a Random Hat`
 pressXPrompt.style.cssText = `
   position: fixed;
@@ -367,15 +363,6 @@ pressXPrompt.style.cssText = `
   font-family: Impact, Haettenschweiler, 'Arial Black', sans-serif;
   letter-spacing: 1px;
   white-space: nowrap;
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  outline: none;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
 `
 document.body.appendChild(pressXPrompt)
 
@@ -410,14 +397,9 @@ window.addEventListener('keydown', (e) => {
   }
 })
 
-// Allow canvas to receive keyboard focus in iframe contexts and suppress
-// text-selection / tap-highlight behaviors that interfere in Safari iframes
+// Allow canvas to receive keyboard focus in iframe contexts
 canvas.setAttribute('tabindex', '0')
 canvas.style.outline = 'none'
-canvas.style.webkitUserSelect = 'none'
-canvas.style.userSelect = 'none'
-canvas.style.webkitTapHighlightColor = 'transparent'
-canvas.style.touchAction = 'manipulation'
 
 const spinAudio = new Audio('/audio/sound.mp3')
 spinAudio.preload = 'auto'

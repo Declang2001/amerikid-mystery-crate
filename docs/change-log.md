@@ -5,30 +5,6 @@ This log tracks direction changes, not just code commits.
 
 ---
 
-## 2026-04-02 -- Fix Prompt Text Selection and Touch Semantics in Iframe
-
-**Type:** Surgical bug fix. `src/main.js`.
-
-Fixed a remaining iframe interaction bug where the Press X prompt behaved like selectable text in Shopify iframe preview instead of acting as a clickable control. Despite the pointerdown listeners added in the previous fix, Safari in cross-origin iframes still treated the `<div>` prompt as a text container, triggering text selection on tap instead of firing pointer/click events.
-
-Root cause: The prompt was a `<div>` element with no selection suppression or touch behavior hints. Safari iframes aggressively apply text selection semantics to non-natively-interactive elements. The `pointerdown` listener helped but did not override the browser's default text selection behavior on tap/hold.
-
-Fix: Converted the prompt from `<div>` to `<button type="button">` so it is natively interactive in all browser contexts. Added `user-select: none`, `-webkit-user-select: none`, `-webkit-tap-highlight-color: transparent`, and `touch-action: manipulation` to both the prompt and canvas. The button is visually reset (`background: none; border: none; padding: 0; margin: 0; outline: none`) so it renders identically to the previous div. All existing pointerdown + click listeners are preserved unchanged.
-
-What was not changed:
-- The `tryStartSpinFromInput()` function or `startSpin()` logic
-- The pointerdown + click event listener wiring from the previous fix
-- The canvas tabindex/focus behavior from the previous fix
-- The audio unlock system
-- The boot phase flow
-- The READY-state gating or playerInRange logic
-- The prompt visibility/positioning logic in the render loop
-- Button visibility rules, preview exact-hat checkout, or purchased finalize path
-- Portal flow, atmosphere, or visual direction
-- Backend, Shopify, Flow, datasets, or the storefront wrapper
-
----
-
 ## 2026-04-02 -- Fix Iframe Spin Input Delivery (Press X / Prompt Click / Canvas Tap)
 
 **Type:** Surgical bug fix. `src/main.js`.
