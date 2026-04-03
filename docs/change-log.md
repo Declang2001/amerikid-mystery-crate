@@ -5,29 +5,6 @@ This log tracks direction changes, not just code commits.
 
 ---
 
-## 2026-04-02 -- Fix Iframe Spin Input Delivery (Press X / Prompt Click / Canvas Tap)
-
-**Type:** Surgical bug fix. `src/main.js`.
-
-Fixed a bug where the Press X prompt and canvas click/tap failed to start the spin inside the Shopify storefront iframe, even though both worked on the direct Vercel deployment. The prompt was visible (confirming READY state and playerInRange were true), but the spin never triggered.
-
-Root cause: The prompt (`<div>`) and canvas (`<canvas>`) relied solely on `click` event listeners. In cross-origin iframes on iOS Safari, `click` events may not fire reliably on non-natively-interactive elements. Additionally, keyboard events (`keydown` for the X key) require the iframe document to have focus, which is not guaranteed after the boot-to-crate handoff.
-
-Fix: Added `pointerdown` listeners on the prompt and canvas as the primary spin trigger (`pointerdown` fires earlier and more reliably than `click` in all iframe contexts). A one-shot `spinInputConsumed` guard prevents double-invocation when both `pointerdown` and `click` fire for the same gesture. The existing `click` listeners are preserved as fallback. The canvas also receives `tabindex="0"` so it can accept keyboard focus, and `finishBootVideoHandoff()` now explicitly focuses the canvas in iframe contexts so the X key can be received.
-
-What was not changed:
-- The `startSpin()` function or any spin/result logic
-- The `tryUnlockAudio()` / `ensureUnlockedFromGesture()` audio unlock system
-- The passive unlock listeners on document
-- The boot phase flow (BLACK_SCREEN, IDLE_VIDEO, WALK_VIDEO, CRATE_VIEW)
-- The READY-state gating or `playerInRange` logic
-- The prompt visibility / positioning logic in the render loop
-- Button visibility rules, preview exact-hat checkout, or purchased finalize path
-- Portal flow, atmosphere, or visual direction
-- Backend, Shopify, Flow, datasets, or the storefront wrapper
-
----
-
 ## 2026-04-02 -- Fix Iframe Audio Overlay Blocking Interaction
 
 **Type:** Surgical bug fix. `src/main.js`.
