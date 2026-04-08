@@ -44,6 +44,7 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Hat display rises from inside crate
 - [ ] Hats cycle during spin with audio playing
 - [ ] Spin lands on a hat (not stuck mid-cycle)
+- [ ] Two consecutive spins feel noticeably different in timing (varied pause before reel, varied reel length)
 - [ ] Winning hat gets a brief reveal impact beat on landing (extra scale, glow burst, and crate light pulse)
 - [ ] Winning reveal settles cleanly back to the accepted held-open winner state without changing cadence or height
 - [ ] Winner hat shows with glow pulse

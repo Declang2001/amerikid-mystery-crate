@@ -916,8 +916,9 @@ function playSfxAndWait(audio, volume = 1) {
   })
 }
 
-// Pause after crate opens, before spin starts
-const POST_OPEN_PAUSE_MS = 1000
+// Pause after crate opens, before spin starts (base + random jitter for variation)
+const POST_OPEN_PAUSE_BASE_MS = 800
+const POST_OPEN_PAUSE_JITTER_MS = 400
 
 // Auto-close chest after winner is shown (Part B)
 const AUTO_CLOSE_AFTER_WINNER_MS = 2500
@@ -1059,7 +1060,7 @@ const SPIN_BASE_DURATION_MS = 7000          // baseline feel
 const AUDIO_SILENCE_TAIL_MS = 1800          // trims silent tail from audio end
 const SPIN_END_PADDING_MS = 80              // stop a hair before trimmed audio end
 const MIN_FULL_ROTATIONS = 2                // tuned for 15-hat pool (~30 steps)
-const EXTRA_FULL_ROTATIONS_MAX = 0          // no random extra rotations
+const EXTRA_FULL_ROTATIONS_MAX = 2          // 0-2 random extra rotations for variation
 
 // Crack leakage materials (driven by glow intensity)
 let crateCrackMaterials = []
@@ -1534,7 +1535,7 @@ async function startSpin() {
     ? Math.max(300, Math.min(6000, openSfx.duration * 1000))
     : 800
   await openCrate(openMs)
-  await delay(POST_OPEN_PAUSE_MS)
+  await delay(POST_OPEN_PAUSE_BASE_MS + Math.floor(Math.random() * POST_OPEN_PAUSE_JITTER_MS))
 
   // Pre-select winner before spin starts (filtered by inventory availability)
   spinWinnerIndex = selectWeightedHat(availableHatIds)

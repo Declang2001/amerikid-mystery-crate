@@ -5,6 +5,30 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-08 -- Spin-start variation polish: random extra rotations and post-open pause jitter
+
+**Type:** Cosmetic timing polish. `src/main.js`.
+
+Added subtle randomness to the spin so each spin no longer feels structurally identical. Two constants changed:
+
+- `EXTRA_FULL_ROTATIONS_MAX` changed from `0` to `2`. Each spin now adds 0, 1, or 2 extra full hat-pool rotations (0-30 extra steps) before landing on the pre-selected winner. The winner selection itself is unchanged.
+- `POST_OPEN_PAUSE_MS` (fixed 1000ms) replaced with `POST_OPEN_PAUSE_BASE_MS` (800ms) + random jitter up to `POST_OPEN_PAUSE_JITTER_MS` (400ms), giving a pause range of 800-1200ms between crate open and spin start.
+
+Combined effect: each spin now varies in both the delay before the reel starts and in how long the reel cycles before deceleration. The overall feel remains within the same ballpark (not dramatically faster or slower).
+
+What was not changed:
+- Winner selection logic (`selectWeightedHat`, inventory gating, available set)
+- Spin easing curve (`spinEasing`)
+- Audio timing, looping, or silence-tail trimming
+- Crate open/close behavior or open SFX timing
+- State machine states or transitions
+- Button visibility rules, "Spin Again" / "Save Result" / "Proceed to Checkout" behavior
+- Purchased/preview path logic, finalize, or eligibility
+- Portal flow, atmosphere, camera, or any visual element beyond spin timing
+- Backend, Shopify, Flow, or the storefront wrapper
+
+---
+
 ## 2026-04-07 -- Sync numbered hat display names with final Shopify variant names
 
 **Type:** Display-only rename. `src/hats.js`, `docs/source-of-truth.md`.
