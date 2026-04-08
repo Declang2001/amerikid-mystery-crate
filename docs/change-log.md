@@ -5,6 +5,22 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-08 -- Lower spin audio playback volume to sit better against portal MP4s
+
+**Type:** Audio level tweak. `src/main.js`.
+
+Reduced `spinAudio.volume` from `1` to `0.45` at the single assignment point inside `startSpin()`. This brings the spin jingle closer to the perceived loudness of the portal idle and walk-in MP4 embedded audio.
+
+What was not changed:
+- Which audio file is used (`/audio/sound.mp3`)
+- Spin timing, duration, easing, or variation logic
+- Audio unlock system or iframe overlay behavior
+- Open/close/claim SFX volumes
+- Portal video audio levels
+- Winner selection, inventory gating, state machine, or any UI/controls
+
+---
+
 ## 2026-04-08 -- Spin-start variation polish: random extra rotations and post-open pause jitter
 
 **Type:** Cosmetic timing polish. `src/main.js`.

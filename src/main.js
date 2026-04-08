@@ -1569,7 +1569,7 @@ async function startSpin() {
   // Now start spinning: state, audio, and animation all begin together
   setState(STATES.SPINNING)
   spinAudio.currentTime = 0
-  spinAudio.volume = 1
+  spinAudio.volume = 0.45
   spinAudio.loop = shouldLoop
   spinAudio.play().catch(() => {})
 
