@@ -5,6 +5,35 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-07 -- Sync numbered hat display names with final Shopify variant names
+
+**Type:** Display-only rename. `src/hats.js`, `docs/source-of-truth.md`.
+
+The hidden mystery-hat product variants on Shopify were renamed to customer-facing names. Updated the `name` field for CF-10 through CF-16 in `src/hats.js` to match:
+
+| Internal ID | Old display name | New display name |
+|-------------|-----------------|-----------------|
+| CF-10 | Candy Facts 10 | Sunset Sherbert |
+| CF-11 | Candy Facts 11 | Wonder Bread |
+| CF-12 | Candy Facts 12 | Pink Lemonade |
+| CF-13 | Candy Facts 13 | Acid Wash |
+| CF-14 | Candy Facts 14 | Junk Yard |
+| CF-15 | Candy Facts 15 | Nuked Zombie |
+| CF-16 | Candy Facts 16 | Head Shot |
+
+What was not changed:
+- Internal `id` values (still CF-10 through CF-16)
+- `shopifyVariantId` values
+- Image paths
+- Weights, mainline flags
+- `api/_lib/allowed-hats.js` validation logic
+- Customer tag schema (`crate_hat_won:CF-10` etc.)
+- Checkout routing, finalize logic, or any persistence behavior
+- Named custom hats (Cross Red, Kinder, Mountain Rush, Pink Panther, Skittles Black, Skittles Red, Studded Melon)
+- Mainline hat (Zombie Slayer OG)
+
+---
+
 ## 2026-04-07 -- Allow post-purchase preview: signed-in zero-spin customers with saved hat enter preview mode
 
 **Type:** Bug fix. `src/main.js`.

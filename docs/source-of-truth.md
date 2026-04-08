@@ -68,7 +68,7 @@ CLAUDE.md and README.md still reflect the older spin-era concept and have not be
 - Launch pool: **15 hats** (implemented in `src/hats.js` and `api/_lib/allowed-hats.js`)
 - 1 mainline hat: **Zombie Slayer OG** (`CF-ZS-OG`, file: `ZOMBIE SLAYER OG FRONT.png`)
 - 7 named custom hats: Cross Red, Kinder, Mountain Rush, Pink Panther, Skittles Black, Skittles Red, Studded Melon
-- 7 numbered hats: Candy Facts 10 through 16
+- 7 named hats: Sunset Sherbert, Wonder Bread, Pink Lemonade, Acid Wash, Junk Yard, Nuked Zombie, Head Shot (internal IDs CF-10 through CF-16)
 - Each hat in `src/hats.js` includes `shopifyVariantId` for exact preview checkout routing
 - All hat PNGs live in `public/hats/`
 - Old placeholder files (`hat1.png` through `hat5.png`) are still in `public/hats/` but no longer referenced by code

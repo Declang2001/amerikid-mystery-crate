@@ -29,13 +29,13 @@ const hats = [
   { id: 'CF-SKITTLES-BLACK', name: 'Skittles Black',    image: '/hats/SKITTLES BLACK (CF).png',      shopifyVariantId: '51863308468504', weight: 1, mainline: false },
   { id: 'CF-SKITTLES-RED',   name: 'Skittles Red',      image: '/hats/SKITTLES RED (CF).png',        shopifyVariantId: '51863308501272', weight: 1, mainline: false },
   { id: 'CF-STUDDED-MELON',  name: 'Studded Melon',     image: '/hats/STUDDED MELON (CF).png',       shopifyVariantId: '51863308534040', weight: 1, mainline: false },
-  { id: 'CF-10',             name: 'Candy Facts 10',    image: '/hats/CANDYFACTSHAT-10-1.png',       shopifyVariantId: '51863308566808', weight: 1, mainline: false },
-  { id: 'CF-11',             name: 'Candy Facts 11',    image: '/hats/CANDYFACTSHAT-11-1.png',       shopifyVariantId: '51863308599576', weight: 1, mainline: false },
-  { id: 'CF-12',             name: 'Candy Facts 12',    image: '/hats/CANDYFACTSHAT-12-1.png',       shopifyVariantId: '51863308632344', weight: 1, mainline: false },
-  { id: 'CF-13',             name: 'Candy Facts 13',    image: '/hats/CANDYFACTSHAT-13-1.png',       shopifyVariantId: '51863308665112', weight: 1, mainline: false },
-  { id: 'CF-14',             name: 'Candy Facts 14',    image: '/hats/CANDYFACTSHAT-14-1.png',       shopifyVariantId: '51863308697880', weight: 1, mainline: false },
-  { id: 'CF-15',             name: 'Candy Facts 15',    image: '/hats/CANDYFACTSHAT-15-1.png',       shopifyVariantId: '51863308730648', weight: 1, mainline: false },
-  { id: 'CF-16',             name: 'Candy Facts 16',    image: '/hats/CANDYFACTSHAT-16-1.png',       shopifyVariantId: '51863308763416', weight: 1, mainline: false }
+  { id: 'CF-10',             name: 'Sunset Sherbert',   image: '/hats/CANDYFACTSHAT-10-1.png',       shopifyVariantId: '51863308566808', weight: 1, mainline: false },
+  { id: 'CF-11',             name: 'Wonder Bread',      image: '/hats/CANDYFACTSHAT-11-1.png',       shopifyVariantId: '51863308599576', weight: 1, mainline: false },
+  { id: 'CF-12',             name: 'Pink Lemonade',     image: '/hats/CANDYFACTSHAT-12-1.png',       shopifyVariantId: '51863308632344', weight: 1, mainline: false },
+  { id: 'CF-13',             name: 'Acid Wash',         image: '/hats/CANDYFACTSHAT-13-1.png',       shopifyVariantId: '51863308665112', weight: 1, mainline: false },
+  { id: 'CF-14',             name: 'Junk Yard',         image: '/hats/CANDYFACTSHAT-14-1.png',       shopifyVariantId: '51863308697880', weight: 1, mainline: false },
+  { id: 'CF-15',             name: 'Nuked Zombie',      image: '/hats/CANDYFACTSHAT-15-1.png',       shopifyVariantId: '51863308730648', weight: 1, mainline: false },
+  { id: 'CF-16',             name: 'Head Shot',         image: '/hats/CANDYFACTSHAT-16-1.png',       shopifyVariantId: '51863308763416', weight: 1, mainline: false }
 ]
 
 /**
