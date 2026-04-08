@@ -53,7 +53,7 @@ CLAUDE.md and README.md still reflect the older spin-era concept and have not be
 - Final chosen hat must be **durably persisted** for fulfillment
 
 ### 2. Preview Path
-- Customer enters the crate without prior purchase, OR logged-in customer with no purchased spins and no saved win
+- Customer enters the crate without prior purchase, OR logged-in customer with no purchased spins (including customers who already saved a hat from a prior purchased flow)
 - Customer gets **1 preview spin**
 - Preview spin is non-binding (no durable persistence needed)
 - After preview result, only "Proceed to Checkout" is shown (no Spin Again, no generic spin button)
@@ -157,7 +157,7 @@ The crate must durably persist the final purchased hat result.
 | Copy in `src/main.js` says "Log in to Claim", "Buy a Spin to Claim" | Stale |
 | `src/hats.js` has 5 placeholder hats | Fixed: 15 real hats with IDs, names, paths, and mainline flag |
 | Iframe audio overlay blocks interaction permanently if unlock fails | Fixed: overlay now always dismisses on first tap; passive listeners retry unlock on subsequent gestures |
-| Logged-in users with no spins entered dead-end purchased path | Fixed: `isPreviewMode` dynamically set to `true` after eligibility fetch when `spinsRemaining === 0` and no saved win |
+| Logged-in users with no spins entered dead-end purchased path | Fixed: `isPreviewMode` dynamically set to `true` after eligibility fetch when `spinsRemaining === 0`, regardless of whether a hat was already saved |
 | Theme wrapper hard-locked with "Unlocking soon." overlay | Intentional for now |
 
 ---

@@ -164,8 +164,10 @@ async function fetchEligibility() {
     eligibility.checked = true
     eligibility.error = null
 
-    // Logged-in user with no purchased spins and no saved win: fall back to preview
-    if (eligibility.spinsRemaining === 0 && !eligibility.hatWon) {
+    // Logged-in user with no purchased spins: fall back to preview.
+    // This includes customers who already saved a hat (hatWon truthy) so they
+    // can still access the non-binding preview path after their purchased flow.
+    if (eligibility.spinsRemaining === 0) {
       isPreviewMode = true
     }
   } catch (err) {

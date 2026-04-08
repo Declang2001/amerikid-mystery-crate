@@ -5,6 +5,24 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-07 -- Allow post-purchase preview: signed-in zero-spin customers with saved hat enter preview mode
+
+**Type:** Bug fix. `src/main.js`.
+
+After the 2026-04-02 fix, `isPreviewMode` was dynamically set to `true` for logged-in customers with `spinsRemaining === 0` and no saved hat. However, customers who had completed a purchased flow (saved a hat via finalize) were excluded by the `&& !eligibility.hatWon` guard. These customers entered the purchased path with 0 spins and a truthy `hatWon`, creating a dead-end: Press X appeared but `startSpin()` silently returned because `eligibility.spinsRemaining <= 0`.
+
+Fix: removed the `&& !eligibility.hatWon` guard from the preview fallback condition at line 168. The condition now reads `if (eligibility.spinsRemaining === 0)`, so any signed-in customer with zero purchased spins falls back to preview mode regardless of whether they already have a saved hat. Preview spins remain non-binding and local-only (no API calls, no durable persistence), so the existing `crate_hat_won` tag is unaffected.
+
+What was not changed:
+- Purchased path behavior for customers with `spinsRemaining > 0`
+- Finalize logic, API endpoints, or tag schema
+- Preview path behavior (still 1 local spin, "Proceed to Checkout" CTA, no persistence)
+- Backend, Shopify tags, or entitlement logic
+- Portal flow, crate scene, camera, audio, spin mechanic, or any visual element
+- State machine states or transitions
+
+---
+
 ## 2026-04-02 -- Fix mode selection: logged-in zero-spin users fall back to preview
 
 **Type:** Bug fix. `src/main.js`.

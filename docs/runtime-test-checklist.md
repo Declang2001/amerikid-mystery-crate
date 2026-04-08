@@ -79,6 +79,10 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Shopify checkout contains the exact revealed hat variant, not a generic mystery hat product or wrong variant
 - [ ] Preview result is NOT persisted to Shopify
 - [ ] Refreshing the page allows another preview spin (acceptable for launch)
+- [ ] Signed-in customer with `crate_hat_won` tag and 0 spins enters preview mode (not dead-end purchased path)
+- [ ] Signed-in customer in post-purchase preview mode gets 1 non-binding preview spin
+- [ ] Signed-in customer in post-purchase preview mode sees "Proceed to Checkout" (not "Save Result")
+- [ ] Post-purchase preview spin does NOT overwrite or affect the existing saved `crate_hat_won` tag
 
 ---
 
