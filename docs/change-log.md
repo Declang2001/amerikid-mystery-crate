@@ -5,6 +5,141 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-09 -- Intro MP4 reliability pass: preload hint, serialized load, error+timeout recovery
+
+**Type:** Minimal crate-side boot-video reliability fix. `index.html`,
+`src/main.js`, `docs/runtime-test-checklist.md`.
+
+Before: the intro boot sequence relied on two MP4s (`idle.mp4` ~7.1 MB
+and `walk_in_animation.mp4` ~15.4 MB, ~22.5 MB combined) that were
+injected into the DOM via `app.innerHTML` inside `src/main.js` after the
+HTML parser had already finished. The browser preload scanner therefore
+never discovered the video URLs during initial HTML parse, so both
+downloads only began after the Vite bundle had been fetched, parsed,
+and executed. Once the boot layer was injected, both videos immediately
+triggered `.load()` in parallel as equal-priority critical downloads, so
+the heavier walk clip competed with the idle clip for first-paint
+bandwidth and extended the "Loading..." state. A post-parse forEach at
+`src/main.js:817-822` mutated `video.crossOrigin = 'anonymous'` on both
+elements after they had already been attached to the DOM with different
+effective CORS state, which per the HTML spec can trigger a re-fetch of
+already-queued media. And if either MP4 stalled, 404'd, or hit a hard
+network failure, the only error surface was the `.play()` try/catch
+inside `startIdleVideo()`, which only runs *after* the user has clicked
+the CTA -- so a failed initial download left the CTA parked at
+"Loading..." forever with no recovery path.
+
+Fix: smallest safe reliability pass scoped strictly to the crate repo
+and the boot-video lifecycle. Nothing else was touched.
+
+What changed inside `index.html`:
+
+- Added `<link rel="preload" as="video" href="/media/portal/idle.mp4"
+  type="video/mp4">` to the document head, immediately above `<title>`.
+  This lets the HTML parser's preload scanner start fetching idle.mp4
+  into the HTTP cache in parallel with the Vite module script fetch and
+  execution, so by the time `main.js` injects the boot layer DOM, the
+  idle video bytes are typically already in cache. Browsers that do not
+  support `rel=preload as=video` simply ignore the hint. Walk is
+  intentionally *not* preloaded so it cannot compete with idle for
+  first-paint bandwidth.
+
+What changed inside `src/main.js`:
+
+- The injected boot layer HTML now sets `preload="metadata"` on
+  `#bootWalkVideo` instead of `preload="auto"`. Metadata is enough to
+  get the moov atom + duration parsed for the fade-threshold
+  computation, but will not eagerly download the video body.
+- The post-parse forEach at the bottom of the boot-video wiring block
+  no longer mutates `video.crossOrigin = 'anonymous'` or reassigns
+  `video.preload = 'auto'`. Only `video.playsInline = true` remains as
+  a defensive backup for the HTML attribute. The crate is same-origin
+  with its MP4s and does not pipe video into a WebGL texture, so the
+  anonymous CORS mode was adding request complexity without a payoff.
+- Added six new module-scope symbols inside the boot reliability block:
+  `BOOT_IDLE_TIMEOUT_MS` (12000), `BOOT_WALK_TIMEOUT_MS` (20000),
+  `bootIdleTimeoutId`, `bootWalkTimeoutId`, `bootIdleLoadFailed`,
+  `bootWalkLoadFailed`, and `walkLoadKicked`. These gate the retry
+  state and prevent the UI from sticking forever.
+- Added six new helpers next to `handleBootMediaReady()`:
+  `clearBootIdleTimeout()`, `clearBootWalkTimeout()`,
+  `markBootIdleLoadFailed()`, `markBootWalkLoadFailed()`,
+  `kickBootIdleLoad()`, `kickBootWalkLoad()`. The kick functions call
+  `.load()` inside a try/catch and schedule a timeout watchdog. The
+  mark functions flip the failed flag, store the error in
+  `audioState.lastError`, clear the timer, and call
+  `updateBootPresentation()` so the CTA can re-enable as "Tap To
+  Retry".
+- `updateBootPresentation()` now factors the failed flags into button
+  enabled state and text. When the black screen is active and the
+  idle load has failed, the button enables with "Tap To Retry" copy
+  instead of staying disabled at "Loading...". Same pattern for the
+  Enter Portal button on the walk path.
+- `bootIdleVideo` and `bootWalkVideo` now have explicit `'error'` and
+  `'stalled'` event listeners. Error listeners call the matching
+  `markBoot*LoadFailed` helper so the UI immediately flips to the
+  retry state. Stalled listeners only record the message (the
+  timeout watchdog is authoritative).
+- The `'loadeddata'` handler for idle now clears the idle timeout and,
+  if walk has not yet been kicked, calls `kickBootWalkLoad()` to begin
+  the walk download. This is the serialized-load core: idle gets the
+  full bandwidth window until it finishes buffering, then walk
+  escalates from `preload="metadata"` to `preload="auto"` with a fresh
+  `.load()` call and the walk timeout starts.
+- The `'loadeddata'` handler for walk clears the walk timeout before
+  calling `handleBootMediaReady('walk')`.
+- The `bootStartBtn` click handler now branches on
+  `bootIdleLoadFailed && !bootMediaReady.idle`. In that case it
+  re-kicks the idle load and refreshes the presentation instead of
+  trying to play the non-existent video. The happy path is unchanged.
+- The `bootEnterPortalBtn` click handler adds the same
+  `bootWalkLoadFailed && !bootMediaReady.walk` branch and re-kicks the
+  walk load on retry.
+- The old `bootIdleVideo?.load() ; bootWalkVideo?.load()` initial
+  parallel kick-off was replaced with a single `kickBootIdleLoad()`
+  call. The walk load is deferred to idle's loadeddata. The
+  `readyState >= 2` fast paths for both videos still work: idle also
+  kicks walk if it is already ready when the module first runs.
+
+What was not changed:
+- No MP4 re-encoding. The underlying `idle.mp4` and
+  `walk_in_animation.mp4` files are untouched. If a future pass can
+  verify moov atom placement and encoder profile with confidence, that
+  work can be scoped separately.
+- Boot phase state machine (`BOOT_PHASES`, `setBootPhase`,
+  `bootPhase`, `sceneReady`, `bootMediaReady`) and its transitions.
+- `startIdleVideo()`, `startWalkVideo()`, `finishBootVideoHandoff()`,
+  `beginWalkFade()`, `handleWalkVideoTimeUpdate()`,
+  `markSceneReady()`.
+- `WALK_FADE_LEAD_S`, `walkVideoFadeThreshold`, `walkFadeStarted`.
+- Boot layer DOM, CSS class toggles, copy ("Dark Aether Uplink", "Dark
+  Aether Feed", "Candy Facts Mystery Box", "Click To Enter", "Enter
+  Portal", "Loading...", "Tap To Retry"), tactical HUD polish.
+- Audio unlock system, ambient volume logic (`AMBIENT_VOLUME_PORTAL`,
+  `AMBIENT_VOLUME_CRATE`, `AMBIENT_VOLUME_SPIN`), iframe audio
+  overlay.
+- Eligibility model, `crate_spins:N`, `crate_hat_won:HAT-ID`,
+  `/api/eligibility`, `/api/consume-spin`, `/api/finalize`,
+  `/api/available-hats`.
+- Preview path, purchased path, spin cadence, spin easing, winner
+  selection, winner-only gold prestige pass, result panel.
+- Post-claim reset (`POST_CLAIM_RELOAD_HOLD_MS`, `window.location.reload()`).
+- Theme wrapper, Shopify admin, Shopify Flow, iframe embed, customer
+  handoff, guest email CTA path, bunker monitor shell, `ak-mb-canvas`,
+  `ak-mb-prestart`, `ak-mb-release`.
+
+Net feel target: the initial "Loading..." window shortens because the
+HTML parser begins fetching idle.mp4 before the Vite bundle has even
+executed, and because the walk download no longer competes with idle
+for the first-paint bandwidth slice. On a cold cache with a slow
+connection, the serialized load also means idle finishes sooner and
+starts playing sooner, giving the user the portal ambience while walk
+continues downloading in the background. If either MP4 fails to load,
+the CTA gracefully flips to "Tap To Retry" after 12 s (idle) or 20 s
+(walk) instead of sitting at "Loading..." forever.
+
+---
+
 ## 2026-04-09 -- Post-claim reset: purchased-path CLAIMED briefly holds then reloads to intro
 
 **Type:** Minimal purchased-path UX fix. `src/main.js`, `docs/runtime-test-checklist.md`.

@@ -275,6 +275,29 @@ Each item should be tested manually unless automated tests exist.
 
 ---
 
+## 15. Intro MP4 reliability pass
+
+- [ ] `index.html` (viewed via DevTools > Elements > <head>) contains `<link rel="preload" as="video" href="/media/portal/idle.mp4" type="video/mp4">`
+- [ ] The preload link is present in the built `dist/index.html` output (verify after `npm run build`)
+- [ ] DevTools Network tab (cold cache): `idle.mp4` request begins before the main JS bundle finishes parsing (early in the waterfall, not after boot layer injection)
+- [ ] DevTools Network tab (cold cache): `walk_in_animation.mp4` does NOT begin downloading until after `idle.mp4` has fired `loadeddata`. Walk should appear as a later, separate request in the waterfall, not a parallel one with idle
+- [ ] The walk video element in DOM starts with `preload="metadata"` and is escalated to `preload="auto"` only after idle is ready (inspect via DevTools on first load)
+- [ ] Neither boot video element has `crossOrigin="anonymous"` set in the DOM (check via DevTools > Elements > both `<video>` tags)
+- [ ] Boot videos no longer emit duplicate network requests caused by post-parse `crossOrigin` mutation (verify in Network tab: each MP4 fires exactly once per cold load)
+- [ ] Happy path unchanged: on a normal cold load with fast network, the CTA still lands on "Click To Enter", the idle video still loops with audio, "Enter Portal" still enables, walk video still plays and fades to crate
+- [ ] DevTools > Network > Throttle: "Slow 3G". Boot screen still reaches "Click To Enter" eventually. Idle video starts playing. Walk video finishes loading by the time the user taps "Enter Portal" in most cases
+- [ ] DevTools > Network > Block request URL (`*idle.mp4`): CTA flips to "Tap To Retry" within ~12 seconds (not stuck on "Loading..." forever). Tapping the button re-issues the load request
+- [ ] DevTools > Network > Block request URL (`*idle.mp4`), then unblock, then tap "Tap To Retry": idle video loads on the retry attempt and the CTA returns to "Click To Enter"
+- [ ] DevTools > Network > Block request URL (`*walk_in_animation.mp4`): after tapping "Click To Enter", idle video plays normally. The "Enter Portal" button stays disabled, then flips to "Tap To Retry" within ~20 seconds
+- [ ] DevTools > Network > Block request URL (`*walk_in_animation.mp4`), then unblock, then tap "Tap To Retry" on the Enter Portal button: walk video loads and the button returns to "Enter Portal"
+- [ ] Console: no uncaught errors during either retry path. `audioState.lastError` captures the failure message for diagnostics
+- [ ] Walk fade threshold (`walkVideoFadeThreshold`) is still computed correctly after the deferred load: walk video fades out ~2 seconds before its natural end
+- [ ] Camera intro, idle bob, Press X prompt, spin flow, audio system, eligibility, preview path, purchased path, finalize persistence, post-claim reload are all visibly identical
+- [ ] Theme wrapper, iframe embed, `customer_id` handoff, `ak-mb-prestart`, `ak-mb-release` are untouched by this pass
+- [ ] Boot sequence works identically inside the Shopify theme iframe (cold cache, throttled network, blocked request scenarios)
+
+---
+
 ## Notes
 
 - Items marked with **Iframe test** or **iOS Safari test** require testing in the actual
@@ -285,3 +308,5 @@ Each item should be tested manually unless automated tests exist.
   durable persistence, preview CTA). Those items will fail until implementation is complete.
 - Inventory-aware pool tests require `read_products` scope and valid inventory data on the
   hidden mystery-hat product
+- Section 15 network-blocking tests require Chrome DevTools Network > Block request URL
+  feature. Throttling tests require Chrome DevTools Network > Throttling presets.

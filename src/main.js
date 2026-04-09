@@ -68,7 +68,7 @@ app.innerHTML = `
           class="boot-video boot-video-walk"
           playsinline
           webkit-playsinline="true"
-          preload="auto"
+          preload="metadata"
           disablepictureinpicture
           disableremoteplayback
           src="/media/portal/walk_in_animation.mp4"
@@ -666,6 +666,19 @@ const bootMediaReady = {
   walk: false
 }
 
+// Boot video reliability: timeouts + error recovery so the UI cannot stick
+// at "Loading..." forever if the MP4 download stalls or fails. The idle
+// video gates the black-screen CTA; the walk video gates the "Enter Portal"
+// CTA. Both have independent retry paths routed through their respective
+// buttons without changing the accepted state machine.
+const BOOT_IDLE_TIMEOUT_MS = 12000
+const BOOT_WALK_TIMEOUT_MS = 20000
+let bootIdleTimeoutId = null
+let bootWalkTimeoutId = null
+let bootIdleLoadFailed = false
+let bootWalkLoadFailed = false
+let walkLoadKicked = false
+
 function updateBootPresentation() {
   if (!bootLayer || !bootStartBtn || !bootEnterPortalBtn) return
 
@@ -675,16 +688,25 @@ function updateBootPresentation() {
   bootLayer.classList.toggle('boot-phase-walk-video', bootPhase === BOOT_PHASES.WALK_VIDEO)
   bootLayer.classList.toggle('scene-ready', sceneReady)
 
-  const blackScreenReady = sceneReady && bootMediaReady.idle
-  bootStartBtn.disabled = !(bootPhase === BOOT_PHASES.BLACK_SCREEN && blackScreenReady)
-  bootEnterPortalBtn.disabled = !(bootPhase === BOOT_PHASES.IDLE_VIDEO && bootMediaReady.walk)
+  const blackScreenActive = bootPhase === BOOT_PHASES.BLACK_SCREEN
+  const idleScreenReady = sceneReady && bootMediaReady.idle
+  bootStartBtn.disabled = !(blackScreenActive && (idleScreenReady || bootIdleLoadFailed))
 
-  if (bootPhase === BOOT_PHASES.BLACK_SCREEN) {
-    if (!sceneReady || !bootMediaReady.idle) {
+  const idleActive = bootPhase === BOOT_PHASES.IDLE_VIDEO
+  bootEnterPortalBtn.disabled = !(idleActive && (bootMediaReady.walk || bootWalkLoadFailed))
+
+  if (blackScreenActive) {
+    if (bootIdleLoadFailed) {
+      bootStartBtn.textContent = 'Tap To Retry'
+    } else if (!sceneReady || !bootMediaReady.idle) {
       bootStartBtn.textContent = 'Loading...'
     } else {
       bootStartBtn.textContent = 'Click To Enter'
     }
+  }
+
+  if (idleActive && bootWalkLoadFailed) {
+    bootEnterPortalBtn.textContent = 'Tap To Retry'
   }
 }
 
@@ -742,6 +764,72 @@ function beginWalkFade() {
 function handleBootMediaReady(key) {
   bootMediaReady[key] = true
   updateBootPresentation()
+}
+
+function clearBootIdleTimeout() {
+  if (bootIdleTimeoutId != null) {
+    clearTimeout(bootIdleTimeoutId)
+    bootIdleTimeoutId = null
+  }
+}
+
+function clearBootWalkTimeout() {
+  if (bootWalkTimeoutId != null) {
+    clearTimeout(bootWalkTimeoutId)
+    bootWalkTimeoutId = null
+  }
+}
+
+function markBootIdleLoadFailed(message) {
+  if (bootMediaReady.idle) return
+  clearBootIdleTimeout()
+  bootIdleLoadFailed = true
+  audioState.lastError = message || 'Idle video failed to load'
+  updateBootPresentation()
+}
+
+function markBootWalkLoadFailed(message) {
+  if (bootMediaReady.walk) return
+  clearBootWalkTimeout()
+  bootWalkLoadFailed = true
+  audioState.lastError = message || 'Walk video failed to load'
+  updateBootPresentation()
+}
+
+function kickBootIdleLoad() {
+  if (!bootIdleVideo) return
+  bootIdleLoadFailed = false
+  clearBootIdleTimeout()
+  try {
+    bootIdleVideo.load()
+  } catch (err) {
+    markBootIdleLoadFailed(err?.message || String(err))
+    return
+  }
+  bootIdleTimeoutId = setTimeout(() => {
+    if (!bootMediaReady.idle) {
+      markBootIdleLoadFailed('Idle video load timed out')
+    }
+  }, BOOT_IDLE_TIMEOUT_MS)
+}
+
+function kickBootWalkLoad() {
+  if (!bootWalkVideo) return
+  walkLoadKicked = true
+  bootWalkLoadFailed = false
+  clearBootWalkTimeout()
+  try {
+    bootWalkVideo.preload = 'auto'
+    bootWalkVideo.load()
+  } catch (err) {
+    markBootWalkLoadFailed(err?.message || String(err))
+    return
+  }
+  bootWalkTimeoutId = setTimeout(() => {
+    if (!bootMediaReady.walk) {
+      markBootWalkLoadFailed('Walk video load timed out')
+    }
+  }, BOOT_WALK_TIMEOUT_MS)
 }
 
 async function startIdleVideo() {
@@ -817,15 +905,30 @@ if (reducedMotionQuery?.addEventListener) {
 ;[bootIdleVideo, bootWalkVideo].forEach(video => {
   if (!video) return
   video.playsInline = true
-  video.crossOrigin = 'anonymous'
-  video.preload = 'auto'
 })
 
 bootIdleVideo?.addEventListener('loadeddata', () => {
+  clearBootIdleTimeout()
   handleBootMediaReady('idle')
+  // Serialize: only begin the heavier walk download once idle is ready,
+  // so idle has the full bandwidth window before the walk MP4 competes.
+  if (!walkLoadKicked) {
+    kickBootWalkLoad()
+  }
+})
+
+bootIdleVideo?.addEventListener('error', () => {
+  markBootIdleLoadFailed('Idle video error')
+})
+
+bootIdleVideo?.addEventListener('stalled', () => {
+  // Stalled is a soft signal -- the timeout watchdog is still authoritative,
+  // but record it for diagnostics.
+  audioState.lastError = 'Idle video stalled'
 })
 
 bootWalkVideo?.addEventListener('loadeddata', () => {
+  clearBootWalkTimeout()
   handleBootMediaReady('walk')
   // Compute the fade threshold once duration is known
   if (bootWalkVideo.duration && isFinite(bootWalkVideo.duration)) {
@@ -840,6 +943,14 @@ bootWalkVideo?.addEventListener('loadedmetadata', () => {
   }
 })
 
+bootWalkVideo?.addEventListener('error', () => {
+  markBootWalkLoadFailed('Walk video error')
+})
+
+bootWalkVideo?.addEventListener('stalled', () => {
+  audioState.lastError = 'Walk video stalled'
+})
+
 bootWalkVideo?.addEventListener('ended', () => {
   if (bootPhase === BOOT_PHASES.WALK_VIDEO) {
     // If the fade already started, let CSS transition finish visually,
@@ -852,22 +963,44 @@ bootWalkVideo?.addEventListener('timeupdate', handleWalkVideoTimeUpdate)
 
 bootStartBtn?.addEventListener('click', (event) => {
   event.stopPropagation()
+  // Retry path: user taps the CTA after an idle-load failure. Reset the
+  // failed flag and re-kick the load instead of trying to play.
+  if (bootIdleLoadFailed && !bootMediaReady.idle) {
+    kickBootIdleLoad()
+    updateBootPresentation()
+    return
+  }
   startIdleVideo()
 })
 
 bootEnterPortalBtn?.addEventListener('click', (event) => {
   event.stopPropagation()
+  // Retry path: user taps the CTA after a walk-load failure. Reset the
+  // failed flag and re-kick the load instead of trying to play.
+  if (bootWalkLoadFailed && !bootMediaReady.walk) {
+    kickBootWalkLoad()
+    updateBootPresentation()
+    return
+  }
   startWalkVideo()
 })
 
-bootIdleVideo?.load()
-bootWalkVideo?.load()
+// Kick the idle load immediately; walk is deferred until idle is ready so
+// the two MP4s do not compete for first-paint bandwidth. The <link
+// rel="preload"> in index.html primes the byte cache for idle before the
+// module script even executes.
+kickBootIdleLoad()
 
 if (bootIdleVideo?.readyState >= 2) {
+  clearBootIdleTimeout()
   handleBootMediaReady('idle')
+  if (!walkLoadKicked) {
+    kickBootWalkLoad()
+  }
 }
 
 if (bootWalkVideo?.readyState >= 2) {
+  clearBootWalkTimeout()
   handleBootMediaReady('walk')
 }
 
