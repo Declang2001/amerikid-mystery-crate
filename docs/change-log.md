@@ -5,6 +5,14 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-08 -- Lower spin audio from 0.45 to 0.35 and raise open/close SFX from 0.35 to 0.40
+
+**Type:** Volume rebalance. `src/main.js`.
+
+Reduced spin jingle playback volume from `0.45` to `0.35` at the single `spinAudio.volume` assignment in the spin start block. Raised open and close SFX playback volume from `0.35` to `0.40` at the two `playSfx()` call sites in `openCrate()` and `closeCrate()`. Claim SFX, ambient values, timing, and all other audio behavior unchanged.
+
+---
+
 ## 2026-04-08 -- Lower open and close SFX volume from 0.55 to 0.35
 
 **Type:** Volume rebalance. `src/main.js`.
