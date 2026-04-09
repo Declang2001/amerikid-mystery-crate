@@ -60,7 +60,7 @@ The application is a single-page app with all logic in `src/main.js`:
 
 **Audio System** (`src/main.js:~396-542`):
 - Spin jingle: `/audio/sound.mp3`, volume `0.45`, duration auto-detected via `loadedmetadata`
-- SFX: `/sfx/open.mp3` (volume 0.55), `/sfx/close.mp3` (volume 0.55), `/sfx/claim.mp3` (volume 1)
+- SFX: `/sfx/open.mp3` (volume 0.35), `/sfx/close.mp3` (volume 0.35), `/sfx/claim.mp3` (volume 1)
 - Ambient loop: `/audio/ambient.mp3`, loop=true, volume `0.10` during portal phase, `0.08` during crate scene
 - Ambient starts when idle video plays, continues through all phases without restart
 - Ambient volume steps down inside `beginWalkFade()` at the portal-to-crate handoff
