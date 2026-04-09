@@ -1095,7 +1095,7 @@ const SPIN_BASE_DURATION_MS = 7000          // baseline feel
 const AUDIO_SILENCE_TAIL_MS = 1800          // trims silent tail from audio end
 const SPIN_END_PADDING_MS = 80              // stop a hair before trimmed audio end
 const MIN_FULL_ROTATIONS = 2                // tuned for 15-hat pool (~30 steps)
-const EXTRA_FULL_ROTATIONS_MAX = 2          // 0-2 random extra rotations for variation
+const EXTRA_FULL_ROTATIONS_MAX = 1          // 0-1 random extra rotations for variation (reduced from 2 to calm front-half cadence)
 
 // Crack leakage materials (driven by glow intensity)
 let crateCrackMaterials = []

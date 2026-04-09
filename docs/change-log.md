@@ -5,6 +5,39 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-09 -- Front-half spin cadence: reduce EXTRA_FULL_ROTATIONS_MAX from 2 to 1
+
+**Type:** Minimal timing tweak. `src/main.js`.
+
+Single-integer change to calm the front half of the reel without touching the
+accepted landing feel. `EXTRA_FULL_ROTATIONS_MAX` lowered from `2` to `1` at
+`src/main.js:1098`. Each spin now adds 0 or 1 extra full hat-pool rotations
+(instead of 0, 1, or 2) before landing on the pre-selected winner. Average
+total step count drops from ~52 to ~45, and maximum drops from 74 to 59.
+Because cadence = `spinTotalSteps / spinDuration * easingVelocity(t)`, this
+lowers swaps-per-second proportionally across the whole curve, with the
+largest perceptual effect on the front-half crest where the hermite wind-up
+peaks. The landing is preserved: only ~1-2 swaps occur in the last 20% of
+time regardless of step count, so the back-half feel is effectively
+unchanged.
+
+What was not changed:
+- `spinEasing()` -- curve shape, rampEnd, power exponent, C1 join all identical
+- `MIN_FULL_ROTATIONS` -- reserved as the next fallback if the front half still reads as too fast
+- `SPIN_BASE_DURATION_MS`, `AUDIO_SILENCE_TAIL_MS`, `SPIN_END_PADDING_MS`
+- `spinDuration` derivation or audio sync
+- `showHat()` scale pop language
+- `startSpin()` beyond the constant it reads
+- Winner selection (`selectWeightedHat`), inventory gating, finalize, eligibility
+- Winner prestige pass (gold grail language, impact/sustain/settle, steady hold)
+- State machine states or transitions, auto-close timing
+- Panel DOM, CSS, copy, button visibility rules
+- Post-open pause variation, crate open/close SFX, spin audio volume
+- Camera, portal flow, atmosphere, materials, geometry
+- Backend, Shopify, Flow, storefront wrapper, API routing
+
+---
+
 ## 2026-04-09 -- Winner-only prestige pass: gold grail language, impact/sustain/settle envelope, steady hold
 
 **Type:** Winner-only visual polish. `src/main.js`.
