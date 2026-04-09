@@ -5,6 +5,14 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-08 -- Spin easing: add wind-up ramp and more dramatic deceleration
+
+**Type:** Motion polish. `src/main.js`.
+
+Replaced the pure ease-out spin easing (`1-(1-t)^1.7`) with a two-phase curve: a cubic hermite wind-up ramp over the first 15% of the timeline (starts from standstill, accelerates visibly), then a power ease-out with exponent 2.4 (more dramatic deceleration than the old 1.7). The two phases are C0+C1 continuous (matching value and derivative at the join). The spin now reads as: brief wind-up from zero, fast readable middle, dramatically slowing final approach to the winner. No changes to spin duration, total steps, winner selection, audio, or state machine.
+
+---
+
 ## 2026-04-08 -- Audio mix correction: spin 0.30, SFX 0.25, crate ambient 0.08 with spin ducking
 
 **Type:** Volume rebalance + ambient ducking. `src/main.js`.

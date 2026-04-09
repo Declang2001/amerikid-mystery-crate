@@ -1462,12 +1462,23 @@ let spinTotalSteps = 0
 let spinStep = 0
 
 /**
- * Smooth ease-out for raffle/prize-wheel feel
- * Starts fast, immediately begins decelerating, settles into final hat.
- * Single curve eliminates the derivative jump the old piecewise approach had.
+ * Spin easing: slow wind-up, fast middle, dramatic deceleration.
+ * - 0-15%:  cubic hermite ramp (starts from standstill, accelerates visibly)
+ * - 15-100%: power ease-out with 2.4 exponent (dramatic slow-down into winner)
+ * C0+C1 continuous at the join (value and derivative match exactly).
  */
 function spinEasing(t) {
-  return 1 - Math.pow(1 - t, 1.7)
+  const rampEnd = 0.15
+  const power = 2.4
+  if (t < rampEnd) {
+    // Cubic hermite: starts at 0 with zero derivative, ends at joinValue
+    // with derivative matching the main curve. C0+C1 continuous.
+    const s = t / rampEnd
+    const jv = 1 - Math.pow(1 - rampEnd, power)           // value at join
+    const jd = power * Math.pow(1 - rampEnd, power - 1) * rampEnd // scaled deriv
+    return (-2 * s * s * s + 3 * s * s) * jv + (s * s * s - s * s) * jd
+  }
+  return 1 - Math.pow(1 - t, power)
 }
 
 function getWinnerRevealImpulse(nowMs) {
