@@ -58,12 +58,15 @@ The application is a single-page app with all logic in `src/main.js`:
 - Visibility: only when `READY` state and `playerInRange === true`
 - Centers with `transform: translate(-50%, -50%)`
 
-**Audio System** (`src/main.js:114-121, 384-386, 395-396, 1323-1326`):
-- File: `/audio/sound.mp3` preloaded with `preload = 'auto'`
-- Duration auto-detection via `loadedmetadata` event
-- Default fallback: 6000ms (6 seconds)
-- Spin duration: `spinAudioDurationMs - 150` (ends slightly before audio)
-- Plays on spin start (user gesture), stops on winner select
+**Audio System** (`src/main.js:~396-542`):
+- Spin jingle: `/audio/sound.mp3`, volume `0.45`, duration auto-detected via `loadedmetadata`
+- SFX: `/sfx/open.mp3` (volume 0.55), `/sfx/close.mp3` (volume 0.55), `/sfx/claim.mp3` (volume 1)
+- Ambient loop: `/audio/ambient.mp3`, loop=true, volume `0.10` during portal phase, `0.08` during crate scene
+- Ambient starts when idle video plays, continues through all phases without restart
+- Ambient volume steps down inside `beginWalkFade()` at the portal-to-crate handoff
+- All audio elements registered in `allAudioElements` for gesture-based unlock
+- Iframe "Tap to enable sound" overlay dismisses on first tap regardless of unlock success
+- Passive unlock listeners retry on subsequent gestures
 - Safety stop in animate loop if state exits SPINNING
 
 **Hat Assets & Display** (`src/main.js:190-210`):
@@ -108,12 +111,15 @@ The application is a single-page app with all logic in `src/main.js`:
 /
 ├── index.html           # Entry HTML with #app mount point
 ├── src/
-│   ├── main.js          # All application logic (~1400 lines)
+│   ├── main.js          # All application logic (~3700 lines)
+│   ├── hats.js          # Hat data and weighted selection (15 hats)
 │   ├── style.css        # Styling with CSS custom properties
 │   └── counter.js       # Unused Vite boilerplate (can be deleted)
 ├── public/
-│   ├── hats/            # Hat PNG images (hat1-5.png, transparent backgrounds)
-│   ├── audio/           # Mystery jingle (sound.mp3)
+│   ├── hats/            # Hat PNG images (15 real hats + 5 old placeholders)
+│   ├── audio/           # Spin jingle (sound.mp3) + ambient loop (ambient.mp3)
+│   ├── sfx/             # Sound effects (open.mp3, close.mp3, claim.mp3)
+│   ├── media/portal/    # Portal videos (idle.mp4, walk_in_animation.mp4)
 │   ├── models/          # Expected location for crate.glb (optional)
 │   └── room.png         # Background texture (inside-out sphere)
 └── package.json         # Dependencies and scripts
@@ -151,8 +157,11 @@ The application is a single-page app with all logic in `src/main.js`:
 ## Asset Requirements
 
 The app uses these assets in the `public/` directory:
-- ✅ `/hats/hat1.png` through `/hats/hat5.png` - Hat images (512x512, transparent backgrounds)
-- ✅ `/audio/sound.mp3` - Mystery jingle audio file
+- ✅ `/hats/*.png` - 15 real hat images (transparent backgrounds) + 5 old placeholders (unreferenced)
+- ✅ `/audio/sound.mp3` - Spin jingle audio file
+- ✅ `/audio/ambient.mp3` - Ambient background loop
+- ✅ `/sfx/open.mp3`, `/sfx/close.mp3`, `/sfx/claim.mp3` - Crate SFX
+- ✅ `/media/portal/idle.mp4`, `/media/portal/walk_in_animation.mp4` - Portal entry videos
 - ✅ `/room.png` - Background texture (equirectangular, inside-out sphere)
 - ⚠️ `/models/crate.glb` - Optional GLTF model with "open"/"close" animations (fallback crate used if missing)
 
@@ -169,7 +178,7 @@ Key CSS custom properties in `src/style.css`:
 
 ### ✅ Completed Features
 - [x] Hat asset integration (5 PNG images)
-- [x] Audio system (mystery jingle, auto-duration sync)
+- [x] Audio system (spin jingle, open/close/claim SFX, ambient loop)
 - [x] 3D hat display above crate (rise, rotate, glow)
 - [x] COD-style Press X prompt (keyboard, click, tap interactions)
 - [x] Camera intro (stationary look-tilt, no translation)
@@ -233,7 +242,7 @@ Key CSS custom properties in `src/style.css`:
 - [ ] Winner reveal animation (confetti, particle effects)
 - [ ] Claim confirmation dialog
 - [ ] Win history / last 3-5 hats claimed
-- [ ] Sound effects (open chest, hat cycling clicks, winner fanfare)
+- [ ] Additional sound effects (hat cycling clicks, winner fanfare)
 - [ ] Mobile-optimized controls
 - [ ] Save/load claimed hats to localStorage
 - [ ] HMAC signature verification for customer_id

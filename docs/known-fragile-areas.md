@@ -29,7 +29,7 @@ restrictions, especially in iframe/embed contexts.
 
 **Why it is fragile:**
 - Safari and iOS have strict autoplay policies that differ from Chrome
-- The system uses a multi-element unlock pattern (spinAudio, openSfx, closeSfx, claimSfx)
+- The system uses a multi-element unlock pattern (spinAudio, openSfx, closeSfx, claimSfx, ambientAudio)
 - A "Tap to enable sound" overlay is shown only in iframe contexts
 - The unlock logic uses synchronous play/pause/restore within user gesture call stacks
 - Passive unlock listeners fire on any pointerdown/touchstart

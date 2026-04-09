@@ -85,8 +85,8 @@ npm run preview
 │   ├── hats.js          # Hat data and weighted selection
 │   └── style.css        # Styling and CSS variables
 ├── public/
-│   ├── hats/            # Hat PNG assets (5 variants)
-│   ├── audio/           # Mystery jingle sound file
+│   ├── hats/            # Hat PNG assets (15 variants)
+│   ├── audio/           # Spin jingle (sound.mp3) + ambient loop (ambient.mp3)
 │   ├── sfx/             # Sound effects (open, close, claim)
 │   ├── models/          # Optional GLTF crate model
 │   └── room.png         # Environment background texture
@@ -201,7 +201,7 @@ Potential future enhancements:
 - **Carousel UI**: Scrolling reel visualization for hat selection
 - **Enhanced VFX**: Confetti, particle effects, and winner reveal animations
 - **Claim History**: localStorage-based win tracking and history display
-- **Sound Design**: Additional SFX for interactions (chest open, cycling clicks, fanfare)
+- **Sound Design**: Additional SFX (hat cycling clicks, winner fanfare)
 - **Mobile Optimization**: Improved touch controls and responsive layouts
 - **Accessibility**: Keyboard navigation and screen reader support
 
