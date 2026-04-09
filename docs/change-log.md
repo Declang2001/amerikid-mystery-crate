@@ -5,6 +5,33 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-08 -- Add ambient background loop underneath the full experience
+
+**Type:** Additive audio pass. `src/main.js`.
+
+Added a looping ambient background track (`/audio/ambient.mp3`) that plays continuously once the experience begins. The ambient element is added to the existing `allAudioElements` unlock array so it uses the same gesture-based audio unlock path as all other audio. Playback starts inside `startIdleVideo()` after the idle video play succeeds, and loops without pause or restart through all subsequent phases and state transitions.
+
+Two volume levels:
+- Portal phase (idle + walk videos): `0.15`
+- Crate scene (after `beginWalkFade` fires): `0.08`
+
+The volume step-down happens inside `beginWalkFade()`, ~2 seconds before the walk video ends, so the ambient naturally quiets as the crate scene fades in.
+
+What was not changed:
+- Spin audio file or volume (`/audio/sound.mp3` at `0.45`)
+- Open/close/claim SFX volumes
+- Portal video audio levels
+- Spin timing, easing, or variation logic
+- Audio unlock system internals (`tryUnlockAudio`)
+- Crate open/close behavior
+- State machine states or transitions
+- Button visibility rules or purchased/preview behavior
+- Winner selection, inventory gating, finalize, or API logic
+- Portal flow structure or MP4 files
+- Backend, Shopify, Flow, or the storefront wrapper
+
+---
+
 ## 2026-04-08 -- Lower spin audio playback volume to sit better against portal MP4s
 
 **Type:** Audio level tweak. `src/main.js`.

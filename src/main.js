@@ -430,8 +430,16 @@ const openSfx = new Audio('/sfx/open.mp3')
 const closeSfx = new Audio('/sfx/close.mp3')
 const claimSfx = new Audio('/sfx/claim.mp3')
 
+// Ambient background loop (plays continuously once started)
+const ambientAudio = new Audio('/audio/ambient.mp3')
+ambientAudio.preload = 'auto'
+ambientAudio.loop = true
+ambientAudio.volume = 0.15
+const AMBIENT_VOLUME_PORTAL = 0.15
+const AMBIENT_VOLUME_CRATE = 0.08
+
 // ALL audio elements that need unlocking (includes spinAudio)
-const allAudioElements = [spinAudio, openSfx, closeSfx, claimSfx]
+const allAudioElements = [spinAudio, openSfx, closeSfx, claimSfx, ambientAudio]
 
 // Debounce threshold to avoid spamming unlock attempts
 const UNLOCK_DEBOUNCE_MS = 300
@@ -716,6 +724,8 @@ function finishBootVideoHandoff() {
 function beginWalkFade() {
   if (walkFadeStarted) return
   walkFadeStarted = true
+  // Lower ambient as portal audio fades and crate scene takes over
+  ambientAudio.volume = AMBIENT_VOLUME_CRATE
   // Start the crate intro underneath the fading video
   introStartTime = 0
   introComplete = false
@@ -749,6 +759,8 @@ async function startIdleVideo() {
     bootIdleVideo.currentTime = 0
     setBootPhase(BOOT_PHASES.IDLE_VIDEO)
     await bootIdleVideo.play()
+    ambientAudio.volume = AMBIENT_VOLUME_PORTAL
+    ambientAudio.play().catch(() => {})
   } catch (err) {
     pauseBootVideo(bootIdleVideo, true)
     setBootPhase(BOOT_PHASES.BLACK_SCREEN)

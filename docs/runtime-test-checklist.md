@@ -66,6 +66,9 @@ Each item should be tested manually unless automated tests exist.
 - [ ] **Iframe test:** "Tap to enable sound" overlay appears in iframe context
 - [ ] **Iframe test:** Tapping overlay unlocks audio successfully
 - [ ] **iOS Safari test:** Audio plays after user gesture in iframe
+- [ ] Ambient background loop starts when idle video begins and plays continuously through all phases
+- [ ] Ambient is clearly softer than spin audio and SFX
+- [ ] Ambient volume drops when the crate scene takes over from the portal videos
 
 ---
 
