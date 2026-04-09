@@ -1394,7 +1394,7 @@ function animateLidTo(targetAngle, duration = 900) {
 
 function openCrate(durationMs) {
   if (crateIsOpen) return Promise.resolve()
-  playSfx(openSfx, 1)
+  playSfx(openSfx, 0.55)
   if (usingFallback) {
     return animateLidTo(fallbackOpenAngle, durationMs || 800).then(() => {
       crateIsOpen = true
@@ -1410,7 +1410,7 @@ function openCrate(durationMs) {
 
 function closeCrate() {
   if (!crateIsOpen) return Promise.resolve()
-  playSfx(closeSfx, 1)
+  playSfx(closeSfx, 0.55)
   if (usingFallback) {
     return animateLidTo(0, 800).then(() => {
       crateIsOpen = false

@@ -5,6 +5,14 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-08 -- Lower open and close SFX volume from 1.0 to 0.55
+
+**Type:** Volume rebalance. `src/main.js`.
+
+Reduced the playback volume for `openSfx` and `closeSfx` from `1` to `0.55` at their two `playSfx()` call sites in `openCrate()` and `closeCrate()`. Claim SFX volume unchanged. No timing, file, or logic changes.
+
+---
+
 ## 2026-04-08 -- Lower ambient volume: portal 0.15→0.10, crate 0.08→0.05
 
 **Type:** Volume rebalance. `src/main.js`.
