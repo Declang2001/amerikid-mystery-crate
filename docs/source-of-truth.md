@@ -1,7 +1,7 @@
 # Source of Truth
 
-> Last synced: 2026-04-08
-> Status: Entitlement model implemented, purchased flow corrected, 15-hat pool wired, exact preview checkout wired, inventory-aware pool filtering implemented, audio mix balanced (spin 0.30, SFX 0.25/1.0, ambient 0.10/0.08/0.05-spin), spin-start variation added, spin easing wind-up added.
+> Last synced: 2026-04-09
+> Status: Entitlement model implemented, purchased flow corrected, 15-hat pool wired, exact preview checkout wired, inventory-aware pool filtering implemented, audio mix balanced (spin 0.30, SFX 0.25/1.0, ambient 0.10/0.08/0.05-spin), spin-start variation added, spin easing wind-up added, winner-only prestige pass added (gold grail glow, impact/sustain/settle envelope, steady hold).
 
 This document is the authoritative working direction for the AmeriKid Mystery Crate launch.
 All implementation decisions should reference this file.

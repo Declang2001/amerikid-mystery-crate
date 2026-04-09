@@ -5,6 +5,78 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-09 -- Winner-only prestige pass: gold grail language, impact/sustain/settle envelope, steady hold
+
+**Type:** Winner-only visual polish. `src/main.js`.
+
+Replaced the old 420 ms single-sine winner reveal + soft pink sine hold with a
+prestige-first winner language that only activates once the final hat lands.
+Nothing about the spin itself changes -- spin easing, cadence, duration, audio,
+selection logic, state flow, auto-close timing, panel DOM/copy, backend, and
+Shopify behavior are all untouched.
+
+What changed inside `src/main.js`:
+
+- `WINNER_REVEAL_DURATION_MS` extended from `420` to `1100`. Added
+  `WINNER_REVEAL_IMPACT_END_MS` (180) and `WINNER_REVEAL_SUSTAIN_END_MS` (700)
+  phase markers. The hat reveal is now impact (cubic rise 0-180 ms) -> sustain
+  (hold at peak 180-700 ms) -> settle (smoothstep fall 700-1100 ms).
+- `getWinnerRevealImpulse()` rewritten to the three-phase shape. Still only
+  non-zero in `STATES.WINNER_SELECTED`. Scale and glow boost ceilings
+  (`0.18` / `0.42`) unchanged.
+- Added `getWinnerLightFlash()` as a separate shorter envelope
+  (`WINNER_LIGHT_FLASH_DURATION_MS` 520, peak at 160) so the crate internal
+  light punches crisply at landing without staying blown out through the full
+  ~1.1 s hat envelope. Crate light boost magnitude (`2.0`) unchanged.
+- Added prestige color constants: `WINNER_GLOW_BASE_COLOR` (`0xff33ff`) and
+  `WINNER_GLOW_PRESTIGE_COLOR` (`0xffc855` warm gold), plus
+  `WINNER_OUTLINE_BASE_COLOR` (`0x000000`) and `WINNER_OUTLINE_PRESTIGE_COLOR`
+  (`0xfff0c8` bright warm white). Transition timed by `WINNER_COLOR_TRANSITION_MS`
+  (320 ms).
+- Added steady hold language constants: `WINNER_HOLD_GLOW_OPACITY` (0.55),
+  `WINNER_HOLD_BREATH_AMPLITUDE` (0.04), `WINNER_HOLD_BREATH_SPEED` (0.9),
+  `WINNER_HOLD_OUTLINE_OPACITY` (0.6), `WINNER_HOLD_OUTLINE_SCALE` (1.09),
+  plus baseline mirrors (`WINNER_OUTLINE_BASE_OPACITY` 0.3, `WINNER_OUTLINE_BASE_SCALE` 1.06).
+- `setState()` reset rule for `winnerRevealStartTime` changed. It previously
+  cleared on any non-WINNER_SELECTED state transition; now it only clears on
+  entry to `READY`, `OPENING`, or `SPINNING`. This keeps the gold prestige
+  language alive through `WINNER_PENDING_CLAIM`, `CLAIMING`, `CLOSING`, and
+  `CLAIMED` states -- the full window the user interacts with the winner.
+- Added a per-frame `prestigeActive` + `winnerColorProgress` computation in
+  the render loop so the color transition runs even after the impulse has
+  completed, and snaps back to baseline the moment the prestige clock is
+  cleared.
+- Render loop now lerps `hatDisplayGlow.material.color` from pink to gold and
+  `hatDisplayOutline.material.color` / `opacity` / `scale` from its functional
+  black baseline to a bright warm rim as `winnerColorProgress` rises.
+- Crate internal light intensity now uses `winnerLightFlash` instead of the
+  generic `winnerRevealImpulse`, so the light spike is the old short punch
+  while the hat scale/glow stays on the new long sustain.
+- Winner hold glow opacity replaces the old `0.25 + 0.15*sin(time*3)` soft
+  pink pulse with a steady `WINNER_HOLD_GLOW_OPACITY` + very gentle
+  `sin(time*0.9) * 0.04` slow breath, gated by `winnerColorProgress` so it
+  fades in alongside the color transition (no landing jump). Clamp raised
+  from `0.9` to `0.95` to accommodate the boosted sustain peak.
+
+Net feel target: the winning hat now punches in with a sharp light flash,
+holds for ~500 ms in a warm gold spotlight with a promoted rim outline, then
+eases down into a steadier prestige hold that reads as "offered" rather than
+"breathing." Spin cycling is untouched -- the pink crate glow language remains
+identical during the reel itself.
+
+What was not changed:
+- `spinEasing()`, `animateSpin()`, or any spin cadence / timing
+- `startSpin()`, `showHat()` cycling pop, spin audio, SFX, ambient volumes
+- State machine states, transitions, or auto-close timer
+- Panel DOM, CSS, class toggles, or copy
+- Purchased vs preview branching, finalize API, checkout routing
+- Crate geometry, lid, question marks, crack materials, cinder blocks
+- Camera position, intro tilt, idle bob, background sphere
+- Backend, Shopify, Flow, storefront wrapper, inventory filtering
+- Any new assets, shaders, or post-processing
+
+---
+
 ## 2026-04-08 -- Spin easing: add wind-up ramp and more dramatic deceleration
 
 **Type:** Motion polish. `src/main.js`.

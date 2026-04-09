@@ -46,9 +46,14 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Spin lands on a hat (not stuck mid-cycle)
 - [ ] Two consecutive spins feel noticeably different in timing (varied pause before reel, varied reel length)
 - [ ] Spin starts with a visible wind-up (hats accelerate from standstill, not instant full speed)
-- [ ] Winning hat gets a brief reveal impact beat on landing (extra scale, glow burst, and crate light pulse)
+- [ ] Winning hat gets a multi-phase reveal: sharp impact beat, held "offering" sustain, then a clean settle into the hold state (no single short flash)
+- [ ] Crate internal light flashes crisply at the landing moment and does not stay blown out through the full sustain
+- [ ] Winner glow shifts away from the crate's pink spin language into a warm gold grail language within the first ~320 ms of landing
+- [ ] Winner outline promotes from the functional black spin rim to a bright warm rim during hold (color, opacity, and scale all shift)
+- [ ] Winner hold glow reads as steady and authoritative, not as a soft crate-breathing pulse
 - [ ] Winning reveal settles cleanly back to the accepted held-open winner state without changing cadence or height
-- [ ] Winner hat shows with glow pulse
+- [ ] Gold prestige language persists across auto-close into WINNER_PENDING_CLAIM and through CLAIMING / CLOSING until a fresh spin starts
+- [ ] Triggering a fresh spin (Spin Again) resets the glow back to the pink spin language before the next reel starts
 - [ ] Result panel slides up showing hat image and name
 - [ ] Result card gets a subtle winner accent without shifting layout or affecting button visibility
 - [ ] Result panel copy changes by state without changing panel timing or introducing any new controls

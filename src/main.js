@@ -1056,10 +1056,32 @@ let hatDisplayOutline = null
 let hatDisplayScale = 1.0
 let hatDisplayScaleTarget = 1.0
 let winnerRevealStartTime = -1
-const WINNER_REVEAL_DURATION_MS = 420
+// Winner hat reveal envelope: impact -> sustain -> settle (~1100 ms total)
+const WINNER_REVEAL_DURATION_MS = 1100
+const WINNER_REVEAL_IMPACT_END_MS = 180
+const WINNER_REVEAL_SUSTAIN_END_MS = 700
 const WINNER_REVEAL_SCALE_BOOST = 0.18
 const WINNER_REVEAL_GLOW_BOOST = 0.42
+// Crate light flash is shorter and crisper than the hat envelope so the
+// spotlight punches at landing but does not stay blown out through the hold.
+const WINNER_LIGHT_FLASH_DURATION_MS = 520
+const WINNER_LIGHT_FLASH_PEAK_MS = 160
 const WINNER_REVEAL_LIGHT_BOOST = 2.0
+// Prestige color language: crate pink spin glow -> warm gold grail glow
+const WINNER_GLOW_BASE_COLOR = new THREE.Color(0xff33ff)
+const WINNER_GLOW_PRESTIGE_COLOR = new THREE.Color(0xffc855)
+const WINNER_OUTLINE_BASE_COLOR = new THREE.Color(0x000000)
+const WINNER_OUTLINE_PRESTIGE_COLOR = new THREE.Color(0xfff0c8)
+const WINNER_COLOR_TRANSITION_MS = 320
+// Winner hold language: steady presence with a very gentle slow breath
+// (replaces the older 0.25 + 0.15*sin crate-breathing pulse)
+const WINNER_HOLD_GLOW_OPACITY = 0.55
+const WINNER_HOLD_BREATH_AMPLITUDE = 0.04
+const WINNER_HOLD_BREATH_SPEED = 0.9
+const WINNER_OUTLINE_BASE_OPACITY = 0.3
+const WINNER_OUTLINE_BASE_SCALE = 1.06
+const WINNER_HOLD_OUTLINE_OPACITY = 0.6
+const WINNER_HOLD_OUTLINE_SCALE = 1.09
 
 // Crate internal glow (yellow light, state-driven)
 let crateInternalLight = null
@@ -1238,7 +1260,15 @@ function setState(state) {
     winnerRevealStartTime = performance.now()
     hatDisplayScale = Math.max(hatDisplayScale, 1.08)
     hatDisplayScaleTarget = 1.0
-  } else if (state !== STATES.WINNER_SELECTED) {
+  } else if (
+    state === STATES.READY ||
+    state === STATES.OPENING ||
+    state === STATES.SPINNING
+  ) {
+    // Only clear the prestige clock when returning to a pre-winner state.
+    // WINNER_PENDING_CLAIM / CLAIMING / CLOSING / CLAIMED keep the winner
+    // glow + outline prestige language alive until the user triggers a
+    // fresh spin (or falls all the way back to READY).
     winnerRevealStartTime = -1
   }
   
@@ -1481,18 +1511,54 @@ function spinEasing(t) {
   return 1 - Math.pow(1 - t, power)
 }
 
+/**
+ * Winner hat reveal envelope. Drives hat scale boost and hat glow boost.
+ * Three phases over WINNER_REVEAL_DURATION_MS:
+ *   - impact  (0 .. IMPACT_END):   cubic ease-out rise 0 -> 1 (punch)
+ *   - sustain (IMPACT_END .. SUSTAIN_END): holds at 1 (the "offering" beat)
+ *   - settle  (SUSTAIN_END .. DURATION): smoothstep fall 1 -> 0
+ * Only non-zero while in STATES.WINNER_SELECTED.
+ */
 function getWinnerRevealImpulse(nowMs) {
   if (currentState !== STATES.WINNER_SELECTED || winnerRevealStartTime < 0) {
     return 0
   }
-
-  const progress = Math.min(Math.max((nowMs - winnerRevealStartTime) / WINNER_REVEAL_DURATION_MS, 0), 1)
-  if (progress >= 1) {
+  const elapsed = nowMs - winnerRevealStartTime
+  if (elapsed <= 0 || elapsed >= WINNER_REVEAL_DURATION_MS) {
     return 0
   }
+  if (elapsed < WINNER_REVEAL_IMPACT_END_MS) {
+    const t = elapsed / WINNER_REVEAL_IMPACT_END_MS
+    return 1 - Math.pow(1 - t, 3)
+  }
+  if (elapsed < WINNER_REVEAL_SUSTAIN_END_MS) {
+    return 1.0
+  }
+  const settleT = (elapsed - WINNER_REVEAL_SUSTAIN_END_MS) /
+    (WINNER_REVEAL_DURATION_MS - WINNER_REVEAL_SUSTAIN_END_MS)
+  return 1 - settleT * settleT * (3 - 2 * settleT)
+}
 
-  const shaped = 1 - Math.pow(1 - progress, 1.8)
-  return Math.sin(shaped * Math.PI)
+/**
+ * Crate internal light winner flash. Shorter and sharper than the hat envelope
+ * so the light punch lands crisply at the reveal without staying blown out
+ * through the sustain/settle phases of the hat itself.
+ */
+function getWinnerLightFlash(nowMs) {
+  if (currentState !== STATES.WINNER_SELECTED || winnerRevealStartTime < 0) {
+    return 0
+  }
+  const elapsed = nowMs - winnerRevealStartTime
+  if (elapsed <= 0 || elapsed >= WINNER_LIGHT_FLASH_DURATION_MS) {
+    return 0
+  }
+  if (elapsed < WINNER_LIGHT_FLASH_PEAK_MS) {
+    const t = elapsed / WINNER_LIGHT_FLASH_PEAK_MS
+    return 1 - Math.pow(1 - t, 3)
+  }
+  const decayT = (elapsed - WINNER_LIGHT_FLASH_PEAK_MS) /
+    (WINNER_LIGHT_FLASH_DURATION_MS - WINNER_LIGHT_FLASH_PEAK_MS)
+  return 1 - decayT * decayT
 }
 
 async function startSpin() {
@@ -3507,7 +3573,16 @@ function animate() {
   }
 
   const time = clock.getElapsedTime()
-  const winnerRevealImpulse = getWinnerRevealImpulse(performance.now())
+  const nowMs = performance.now()
+  const winnerRevealImpulse = getWinnerRevealImpulse(nowMs)
+  const winnerLightFlash = getWinnerLightFlash(nowMs)
+  // Winner prestige color transition progress (0..1 over WINNER_COLOR_TRANSITION_MS).
+  // Persists through WINNER_PENDING_CLAIM / CLAIMING / CLOSING / CLAIMED because
+  // winnerRevealStartTime is only cleared on READY / OPENING / SPINNING entry.
+  const prestigeActive = winnerRevealStartTime >= 0 && currentState !== STATES.SPINNING
+  const winnerColorProgress = prestigeActive
+    ? Math.min(1, Math.max(0, (nowMs - winnerRevealStartTime) / WINNER_COLOR_TRANSITION_MS))
+    : 0
 
   // Allow the crate intro to begin during the walk-video fade so the scene
   // is already animating underneath the fading boot layer.
@@ -3577,7 +3652,7 @@ function animate() {
     }
     // Smooth ramp toward target
     crateGlowIntensity += (crateGlowTarget - crateGlowIntensity) * CRATE_GLOW_RAMP_SPEED
-    const boostedCrateGlowIntensity = crateGlowIntensity + winnerRevealImpulse * WINNER_REVEAL_LIGHT_BOOST
+    const boostedCrateGlowIntensity = crateGlowIntensity + winnerLightFlash * WINNER_REVEAL_LIGHT_BOOST
     crateInternalLight.intensity = boostedCrateGlowIntensity
 
     // Drive crack material opacity with flicker
@@ -3647,10 +3722,31 @@ function animate() {
       : 0
     const renderedHatScale = hatDisplayScale + winnerRevealScaleBoost
     hatDisplay3D.scale.setScalar(renderedHatScale)
+
+    // Prestige color transition: crate pink spin glow -> warm gold grail glow.
+    // Lerp runs every frame so non-winner states snap back to baseline when
+    // winnerColorProgress returns to 0.
+    hatDisplayGlow.material.color
+      .copy(WINNER_GLOW_BASE_COLOR)
+      .lerp(WINNER_GLOW_PRESTIGE_COLOR, winnerColorProgress)
+
+    // Outline prestige promotion: functional black rim -> bright warm rim.
+    // Lerps color, opacity, and scale multiplier alongside the color transition.
     if (hatDisplayOutline) {
-      hatDisplayOutline.scale.setScalar(renderedHatScale * 1.06)
+      const outlineMat = hatDisplayOutline.material
+      outlineMat.color
+        .copy(WINNER_OUTLINE_BASE_COLOR)
+        .lerp(WINNER_OUTLINE_PRESTIGE_COLOR, winnerColorProgress)
+      outlineMat.opacity =
+        WINNER_OUTLINE_BASE_OPACITY +
+        (WINNER_HOLD_OUTLINE_OPACITY - WINNER_OUTLINE_BASE_OPACITY) * winnerColorProgress
+      const outlineScaleMult =
+        WINNER_OUTLINE_BASE_SCALE +
+        (WINNER_HOLD_OUTLINE_SCALE - WINNER_OUTLINE_BASE_SCALE) * winnerColorProgress
+      hatDisplayOutline.scale.setScalar(renderedHatScale * outlineScaleMult)
     }
-    if (currentState === STATES.WINNER_SELECTED || currentState === STATES.WINNER_PENDING_CLAIM) {
+
+    if (prestigeActive) {
       hatDisplayGlow.scale.setScalar(renderedHatScale * (1.18 + winnerRevealImpulse * 0.08))
     } else {
       hatDisplayGlow.scale.setScalar(1.18)
@@ -3659,12 +3755,17 @@ function animate() {
     if (currentState === STATES.SPINNING) {
       hatDisplayRoot.rotation.y += delta * 4.0
       hatDisplayGlow.material.opacity = 0.15
-    } else if (currentState === STATES.WINNER_SELECTED || currentState === STATES.WINNER_PENDING_CLAIM) {
-      const pulse = 0.25 + Math.sin(time * 3.0) * 0.15
+    } else if (prestigeActive) {
+      // Winner hold: steady prestige opacity with a very gentle slow breath.
+      // Replaces the old 0.25 + 0.15*sin(time*3) crate-breathing pulse.
+      // The hold opacity fades in alongside the color transition so there is
+      // no jump at landing.
+      const breath = Math.sin(time * WINNER_HOLD_BREATH_SPEED) * WINNER_HOLD_BREATH_AMPLITUDE
+      const hold = (WINNER_HOLD_GLOW_OPACITY + breath) * winnerColorProgress
       const winnerRevealGlowBoost = currentState === STATES.WINNER_SELECTED
         ? winnerRevealImpulse * WINNER_REVEAL_GLOW_BOOST
         : 0
-      hatDisplayGlow.material.opacity = Math.min(0.9, pulse + winnerRevealGlowBoost)
+      hatDisplayGlow.material.opacity = Math.min(0.95, hold + winnerRevealGlowBoost)
     } else {
       hatDisplayGlow.material.opacity = 0.0
     }
