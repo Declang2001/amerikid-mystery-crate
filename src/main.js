@@ -434,9 +434,9 @@ const claimSfx = new Audio('/sfx/claim.mp3')
 const ambientAudio = new Audio('/audio/ambient.mp3')
 ambientAudio.preload = 'auto'
 ambientAudio.loop = true
-ambientAudio.volume = 0.15
-const AMBIENT_VOLUME_PORTAL = 0.15
-const AMBIENT_VOLUME_CRATE = 0.08
+ambientAudio.volume = 0.10
+const AMBIENT_VOLUME_PORTAL = 0.10
+const AMBIENT_VOLUME_CRATE = 0.05
 
 // ALL audio elements that need unlocking (includes spinAudio)
 const allAudioElements = [spinAudio, openSfx, closeSfx, claimSfx, ambientAudio]

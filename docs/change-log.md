@@ -5,6 +5,14 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-08 -- Lower ambient volume: portal 0.15→0.10, crate 0.08→0.05
+
+**Type:** Volume rebalance. `src/main.js`.
+
+Reduced both ambient volume constants to sit further underneath the portal MP4 audio and the crate scene. Portal phase from `0.15` to `0.10`, crate scene from `0.08` to `0.05`. Initial default volume updated to match. No other audio, timing, or logic changes.
+
+---
+
 ## 2026-04-08 -- Add ambient background loop underneath the full experience
 
 **Type:** Additive audio pass. `src/main.js`.
