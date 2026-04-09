@@ -1,7 +1,7 @@
 # Source of Truth
 
 > Last synced: 2026-04-09
-> Status: Entitlement model implemented, purchased flow corrected, 15-hat pool wired, exact preview checkout wired, inventory-aware pool filtering implemented, audio mix balanced (spin 0.30, SFX 0.25/1.0, ambient 0.10/0.08/0.05-spin), spin-start variation added, spin easing wind-up added, winner-only prestige pass added (gold grail glow, impact/sustain/settle envelope, steady hold), front-half spin cadence calmed (EXTRA_FULL_ROTATIONS_MAX 2 to 1), tactical HUD polish applied to boot cards and result panel (classified-console corner brackets, scanlines, Black Ops One titles, beveled tactical buttons, cyan/amber/gold state language).
+> Status: Entitlement model implemented, purchased flow corrected, 15-hat pool wired, exact preview checkout wired, inventory-aware pool filtering implemented, audio mix balanced (spin 0.30, SFX 0.25/1.0, ambient 0.10/0.08/0.05-spin), spin-start variation added, spin easing wind-up added, winner-only prestige pass added (gold grail glow, impact/sustain/settle envelope, steady hold), front-half spin cadence calmed (EXTRA_FULL_ROTATIONS_MAX 2 to 1), tactical HUD polish applied to boot cards and result panel (classified-console corner brackets, scanlines, Black Ops One titles, beveled tactical buttons, cyan/amber/gold state language), post-claim reset added (purchased-path CLAIMED holds briefly then reloads to intro).
 
 This document is the authoritative working direction for the AmeriKid Mystery Crate launch.
 All implementation decisions should reference this file.
@@ -51,6 +51,7 @@ CLAUDE.md and README.md still reflect the older spin-era concept and have not be
 - "Spin Again" only appears when another purchased spin exists; hidden when no spins remain
 - When no spins remain, only "Save Result" is shown
 - Final chosen hat must be **durably persisted** for fulfillment
+- After `Save Result` success, the CLAIMED confirmation is held briefly (~2.5s) then the page reloads back to the full intro flow. On reload the same customer naturally lands in post-purchase preview mode (1 non-binding spin, "Proceed to Checkout" CTA) via existing eligibility fallback logic.
 
 ### 2. Preview Path
 - Customer enters the crate without prior purchase, OR logged-in customer with no purchased spins (including customers who already saved a hat from a prior purchased flow)

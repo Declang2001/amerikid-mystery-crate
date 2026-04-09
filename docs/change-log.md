@@ -5,6 +5,78 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-09 -- Post-claim reset: purchased-path CLAIMED briefly holds then reloads to intro
+
+**Type:** Minimal purchased-path UX fix. `src/main.js`, `docs/runtime-test-checklist.md`.
+
+Before: after a purchased-path `Save Result` finalized successfully, the
+experience landed on `STATES.CLAIMED` with the panel showing "Saved
+Result" / "Saved for fulfillment" and no path forward -- `claimBtn` is
+hidden in CLAIMED, `spinBtn` is hidden because `canPurchasedSpin` is false
+(spinsRemaining=0 + hatWon truthy), and utility buttons are hidden. The
+customer was parked on a dead-end panel with correct persisted data but
+no ceremony to return to the beginning.
+
+Fix: after the purchased-path finalize success branch reaches CLAIMED
+inside the `claimBtn` click handler's `closeCrate().then(...)` callback,
+schedule a single `window.location.reload()` after a short hold so the
+customer sees the "Saved Result" confirmation briefly, then the page
+reloads back to the black-screen -> idle video -> walk video -> crate
+intro cinematic exactly as it runs on first load. The existing
+eligibility fetch logic at `src/main.js:170-172` already routes a
+returning signed-in customer with `spinsRemaining === 0` into preview
+mode regardless of `hatWon` state (per the 2026-04-07 post-purchase
+preview bug fix), so after reload the same customer naturally lands in
+post-purchase preview mode with 1 non-binding preview spin and a
+`Proceed to Checkout` CTA. Nothing in the entitlement, finalize,
+checkout, preview, eligibility, boot, MP4, audio, spin, state machine,
+or theme layers changes.
+
+What changed inside `src/main.js`:
+
+- Added two module-scope declarations near `AUTO_CLOSE_AFTER_WINNER_MS`:
+  `POST_CLAIM_RELOAD_HOLD_MS` (2500 ms) and `postClaimReloadTimerId`
+  (null). Matching naming pattern and placement of the existing
+  `autoCloseTimerId`.
+- Inside the purchased-path branch of the `claimBtn` click handler, at
+  the end of the `closeCrate().then(() => { ... })` callback, after
+  `isPurchasedSpin = false`, a single `setTimeout` was added that
+  clears any prior reload timer then calls `window.location.reload()`
+  after `POST_CLAIM_RELOAD_HOLD_MS`. Guarded by a pre-clear of any
+  prior `postClaimReloadTimerId` so rapid re-entry cannot schedule
+  overlapping reloads.
+- The reload timer is gated strictly inside the purchased-path branch.
+  The preview branch returns early at
+  `redirectToCheckout(previewCheckoutUrl)` well before this callback
+  ever runs, so no new preview gating was required.
+
+What was not changed:
+- `finalizeSpinResult()` or `/api/finalize`
+- Preview path (`redirectToCheckout()` and `buildPreviewCheckoutUrl()`)
+- Eligibility fetch logic (`fetchEligibility()`) or the
+  `spinsRemaining === 0 -> isPreviewMode = true` fallback
+- Entitlement model (`crate_spins:N`, `crate_hat_won:HAT-ID`)
+- The `STATES` enum, `setState()`, or any state machine transitions
+- Panel DOM, CSS, class toggles, or copy
+- `scheduleAutoClose()` / `cancelAutoClose()` / `autoCloseTimerId`
+- Purchased-path `Save Result` finalize sequencing up to and including
+  the CLAIMED state assignment
+- Boot flow, MP4 system, audio unlock system, ambient volume logic
+- Spin easing, spin cadence, spin timing, winner selection, prestige
+  pass, winner-only 3D gold envelope
+- Crate geometry, camera, intro tilt, idle bob, portal flow
+- Guest combo purchase path, signed-in purchased path, preview path
+- Theme wrapper, Shopify admin, Shopify Flow
+- Backend, API endpoints, CORS, token caching
+
+Net feel target: after a purchased customer saves their result, they
+briefly see the locked-in confirmation, then the experience gracefully
+returns to the full intro cinematic instead of leaving them parked on a
+terminal panel. Post-reload they can take one non-binding preview spin
+if they want to explore more hats.
+
+---
+
 ## 2026-04-09 -- Tactical HUD polish: classified-console language on boot cards and result panel
 
 **Type:** Pure CSS visual polish. `src/style.css` only.

@@ -115,6 +115,12 @@ Each item should be tested manually unless automated tests exist.
 - [ ] `/api/finalize` rejects if hat already finalized (no overwrite)
 - [ ] `/api/finalize` rejects invalid hat IDs (not in allowed set)
 - [ ] After finalize, the existing panel gives a stronger locked-in confirmation without any modal, overlay, or extra step
+- [ ] After purchased `Save Result` success, the CLAIMED panel is visible briefly (~2.5s hold) before the page reloads
+- [ ] After the post-claim reload, the customer lands back on the black-screen "Click To Enter" boot flow
+- [ ] After the post-claim reload, the customer proceeds through the full intro cinematic unchanged (idle video -> walk video -> crate intro)
+- [ ] After the post-claim reload, signed-in purchased customer with spinsRemaining=0 + `crate_hat_won` tag lands in post-purchase preview mode (1 non-binding spin, "Proceed to Checkout" CTA)
+- [ ] Post-claim reload path never triggers on the preview path (`Proceed to Checkout` still uses `redirectToCheckout` and exits the app)
+- [ ] Post-claim reload fires exactly once even if the user somehow re-clicks `Save Result` during the hold (timer is guarded against overlapping schedules)
 
 ---
 

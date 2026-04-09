@@ -937,6 +937,13 @@ const POST_OPEN_PAUSE_JITTER_MS = 400
 const AUTO_CLOSE_AFTER_WINNER_MS = 2500
 let autoCloseTimerId = null
 
+// Purchased-path only: after finalize success lands on CLAIMED, hold the
+// "Saved Result" confirmation briefly then reload the page back to the intro
+// flow. Existing eligibility logic (spinsRemaining=0 + hatWon truthy) will
+// route the returning customer naturally into post-purchase preview mode.
+const POST_CLAIM_RELOAD_HOLD_MS = 2500
+let postClaimReloadTimerId = null
+
 const BACKGROUND_URL = '/room.png'
 const BG_Y_ROT = -0.6
 const SCENE_FOG_COLOR = '#05060d'
@@ -1793,6 +1800,17 @@ claimBtn.addEventListener('click', async () => {
     setQuestionMarksVisible(true)
     finalizeInProgress = false
     isPurchasedSpin = false
+    // Purchased-path only: hold the "Saved Result" confirmation briefly,
+    // then reload the page back to the intro flow. Gated strictly inside
+    // the purchased-path branch (the preview branch returned earlier via
+    // redirectToCheckout and never reaches here).
+    if (postClaimReloadTimerId) {
+      clearTimeout(postClaimReloadTimerId)
+    }
+    postClaimReloadTimerId = setTimeout(() => {
+      postClaimReloadTimerId = null
+      window.location.reload()
+    }, POST_CLAIM_RELOAD_HOLD_MS)
   })
 })
 
