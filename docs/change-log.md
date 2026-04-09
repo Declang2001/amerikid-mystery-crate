@@ -5,6 +5,117 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-09 -- Tactical HUD polish: classified-console language on boot cards and result panel
+
+**Type:** Pure CSS visual polish. `src/style.css` only.
+
+Chose a single cohesive visual direction -- a BO2 / Dark Aether uplink
+"classified console" language -- and applied it across the three surfaces
+named in the pass (black-screen boot card, idle-video overlay, post-spin
+result panel) via an appended CSS section. Zero DOM changes, zero JS
+changes, zero behavior changes, zero state-machine changes, zero copy
+changes.
+
+Why this direction: the existing surfaces already had reasonable bones
+(boot kicker / title / CTA structure, frosted-glass panel with
+winner-reveal keyframe, Black Ops One font loaded in index.html but only
+used on buttons). They read as generic-webby rather than game-like. The
+shortest path to "premium Xbox-era game UI" is a shared decorative HUD
+overlay that ties the opening cards and the reward panel into one
+recognizable language without touching structure or motion.
+
+What changed inside `src/style.css` (all additive, appended after the
+existing mobile media query, ~320 new lines):
+
+- New CSS variables on `:root`: `--hud-amber`, `--hud-amber-soft`,
+  `--hud-cyan`, `--hud-gold`, `--hud-stroke-width`, `--hud-corner-length`,
+  `--hud-scanline`.
+- Shared HUD frame overlay on `::after` pseudo-elements for `.boot-copy`,
+  `.boot-idle-copy`, `.panel`, and `.result-card`. Each overlay is a
+  single absolutely-positioned layer `inset: 0; pointer-events: none;
+  z-index: 0;` with a stacked `background-image` containing four corner
+  bracket strokes (8 gradient layers) plus a very subtle horizontal
+  scanline pattern. This lives on `::after` rather than the base element
+  so it does not conflict with the accepted `.panel.winner-reveal
+  .result-card` keyframe (which animates the `background` /
+  `border-color` / `box-shadow` shorthands on `.result-card` itself).
+- Content stacking: `.boot-copy > *`, `.boot-idle-copy > *`,
+  `.panel > div`, `.result-card > *` now get `position: relative;
+  z-index: 1;` so the frame overlay sits behind the content.
+- Sharper corners across all frames (border-radius reductions to 2-4px):
+  `.boot-copy`, `.panel`, `.result-card`, `button`.
+- `.boot-idle-copy` now renders as a true tactical readout over the
+  portal video: padding + translucent dark gradient background + thin
+  amber border + rounded-to-4px + HUD frame overlay. Previously it was
+  an unstyled flex column.
+- Typography upgrade: `.boot-title` and `.panel-header h1` now use
+  `Black Ops One` (the font was already loaded in index.html but only
+  applied to buttons), with wider letter-spacing, warm amber + cool cyan
+  dual-channel text-shadow, uppercase.
+- `.result-details h2` (winning hat name) upgraded to Black Ops One,
+  slightly larger, amber text-shadow.
+- `.boot-kicker` restyled as a tactical terminal strip: cyan color,
+  0.34em tracking, amber `[` and `]` bracket glyphs added via
+  `::before` / `::after` `content:` (pure decoration of the existing
+  kicker text, no new copy introduced).
+- `.boot-cta` and `.controls button` both get diagonal top-right and
+  bottom-left corner bevels via `clip-path: polygon(...)`, Black Ops One
+  font, wider tracking, inset 3px amber bottom-bar box-shadow for
+  tactical weight, amber glow on hover.
+- `#claimBtn` gets a dedicated amber-prestige palette in its purchased
+  variant (warm gradient, gold text-shadow, amber rim on hover) and a
+  dedicated cyan-data palette via `.panel.preview-result #claimBtn`
+  (cool gradient, cyan text-shadow, cyan rim on hover). This visually
+  distinguishes "Save Result" (purchased, amber) from "Proceed to
+  Checkout" (preview, cyan) without changing text or behavior.
+- `.label` and `.status-line` rewritten as tactical terminal chips:
+  sharp 2px corners, amber border, amber text-shadow, state-specific
+  color shifts (amber default, cyan for preview-result, gold for
+  claimed-result).
+- HUD frame state colors: `.panel.preview-result::after` overrides
+  `--hud-amber-soft` to cyan; `.panel.claimed-result::after` and
+  `.panel.winner-reveal::after` override to bright gold AND add a
+  2.4s-loop opacity breath via `hud-frame-pulse` keyframe. This ties
+  the 2D panel frame to the already-shipped 3D winner prestige pass
+  (gold glow).
+- Staggered arrival: `.panel.visible .panel-header` and
+  `.panel.visible .controls` each get a subtle 520ms
+  `hud-fade-up` animation with 120ms and 220ms delays. The already
+  accepted `.panel.winner-reveal .result-card` reveal keyframe is
+  unchanged and fires on top of the stagger for result states.
+- Mobile `(max-width: 820px)` block tightens `--hud-corner-length` to
+  16px, `--hud-stroke-width` to 1.4px, kicker tracking to 0.26em, title
+  letter-spacing to 0.04em, and shrinks the button clip-path bevels.
+
+What was not changed:
+- `index.html` (no new fonts, no new assets, no new meta tags)
+- `src/main.js` (no DOM changes, no state machine changes, no JS
+  changes, no button action changes, no copy changes, no class-toggle
+  logic changes)
+- The accepted `.panel.winner-reveal .result-card` 520ms keyframe
+- `.result-card` base background, border, and box-shadow properties
+  (HUD overlay is on `::after` so the keyframe is unaffected)
+- The boot card copy (still exactly: kicker "Dark Aether Uplink",
+  title "Candy Facts Mystery Box", one CTA "Click To Enter" / "Loading...")
+- The idle overlay copy (still exactly: kicker "Dark Aether Feed",
+  title "Candy Facts Mystery Box", button "Enter Portal")
+- Button dynamic text logic (`Spin`, `Spin Again`, `Save Result`,
+  `Proceed to Checkout`) and button visibility rules
+- State machine states or transitions
+- Purchased vs preview branching, finalize API, checkout routing
+- Spin easing, spin timing, spin audio, spin cadence, winner selection
+- Winner-only prestige pass (3D gold glow envelope)
+- Camera position, intro tilt, idle bob, portal flow
+- Crate geometry, lid, question marks, cinder blocks, atmosphere pass
+- Backend, Shopify, Flow, storefront wrapper, API routing
+
+Net feel target: opening sequence reads as a ritualized uplink console
+instead of a frosted web card; the post-spin panel reads as a loot /
+claim terminal readout instead of an Apple-style glass panel; the whole
+experience holds together with one tactical language from boot to reward.
+
+---
+
 ## 2026-04-09 -- Front-half spin cadence: reduce EXTRA_FULL_ROTATIONS_MAX from 2 to 1
 
 **Type:** Minimal timing tweak. `src/main.js`.

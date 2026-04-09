@@ -228,6 +228,47 @@ Each item should be tested manually unless automated tests exist.
 
 ---
 
+## 14. Tactical HUD polish
+
+- [ ] Black-screen boot card shows four thin amber L-shaped corner brackets framing the card
+- [ ] Black-screen boot card shows a very subtle horizontal scanline overlay inside the frame
+- [ ] Black-screen boot card still shows only: kicker "Dark Aether Uplink" (bracketed with `[` `]`), title "Candy Facts Mystery Box", and one CTA button. No support/body copy was introduced
+- [ ] Black-screen CTA reads "Click To Enter" when enabled and "Loading..." while loading (unchanged)
+- [ ] Black-screen CTA has beveled top-right and bottom-left corners, amber bottom-bar glow, Black Ops One font
+- [ ] Idle-video overlay card appears as a tactical readout at the bottom of the portal video with amber corner brackets, thin amber border, translucent dark gradient background
+- [ ] Idle-video overlay still shows only: kicker "Dark Aether Feed" (bracketed), title "Candy Facts Mystery Box", button "Enter Portal"
+- [ ] Idle-video overlay does not cover more than the bottom of the video
+- [ ] "Enter Portal" button has the same tactical bevel + amber language as the boot-screen CTA
+- [ ] Post-spin result panel shows amber corner brackets framing the whole panel
+- [ ] Post-spin result card shows its own amber corner brackets framing the hat image and title block
+- [ ] Panel title "CANDY FACTS MYSTERY BOX" renders in Black Ops One
+- [ ] Winning hat name (`#resultName`) renders in Black Ops One with a subtle amber text-shadow
+- [ ] `.label` chip ("Winner" / "Final Hat" / etc) reads as a sharp tactical chip with amber border and amber glow on purchased path
+- [ ] `.label` chip reads cyan when in preview-result state
+- [ ] `.label` chip reads gold when in claimed-result state
+- [ ] `.status-line` reads as a tactical monospace strip with amber border
+- [ ] Purchased path: `#claimBtn` ("Save Result") renders with warm amber gradient, gold text-shadow, and amber rim on hover
+- [ ] Preview path: `#claimBtn` ("Proceed to Checkout") renders with cool cyan gradient, cyan text-shadow, and cyan rim on hover
+- [ ] `.controls button` elements have beveled top-right and bottom-left corners via clip-path
+- [ ] Button text "Save Result", "Proceed to Checkout", "Spin Again", "Spin" is unchanged
+- [ ] Button visibility logic is unchanged (purchased / preview / has-secondary-action / claimed flows all behave identically)
+- [ ] When the panel becomes visible, `.panel-header` and `.controls` fade-up from 6px below with a subtle 120 ms / 220 ms stagger
+- [ ] The already-accepted `.result-card` winner-reveal 520 ms keyframe still plays on top of the stagger
+- [ ] Panel HUD frame brackets pulse subtly (~2.4 s loop) during `.panel.winner-reveal` and `.panel.claimed-result` states
+- [ ] Panel HUD frame brackets are cyan during `.panel.preview-result`
+- [ ] Panel HUD frame brackets stay amber in default / purchased-result states
+- [ ] Panel HUD frame brackets do not overlap or cover any button or text content
+- [ ] No scrollbars or layout shift introduced by the HUD frame overlay on desktop
+- [ ] No scrollbars or layout shift introduced by the HUD frame overlay on mobile iframe
+- [ ] Mobile `(max-width: 820px)`: corner brackets shrink to ~16 px, stroke width 1.4 px, kicker tracking tightens
+- [ ] Mobile `(max-width: 820px)`: Black Ops One titles remain readable and do not clip
+- [ ] Mobile iframe: button clip-path bevels render cleanly without cutting visible text
+- [ ] Iframe context: no mixed-content or CSP errors from the new CSS
+- [ ] Spin timing, spin cadence, audio, and the entire state machine are visibly identical
+- [ ] Winner-only 3D prestige pass (gold glow, impact/sustain/settle envelope, crate light flash) is visibly identical
+
+---
+
 ## Notes
 
 - Items marked with **Iframe test** or **iOS Safari test** require testing in the actual
