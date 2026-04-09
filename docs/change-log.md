@@ -5,6 +5,115 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-09 -- Deferred hat texture preload: keep ~63 MB of PNGs off the first-paint critical path
+
+**Type:** Mobile-first lag audit follow-up. Smallest safe crate-side
+move. `src/main.js`, `docs/change-log.md`, `docs/runtime-test-checklist.md`,
+`docs/source-of-truth.md`.
+
+Before: after the 2026-04-09 intro MP4 reliability pass, the idle
+preload hint was priming the byte cache for `idle.mp4` before the Vite
+bundle even executed, and walk was deferred behind idle's `loadeddata`
+so the two videos no longer competed. Good. But at module init, the
+crate was still eagerly kicking **15 hat PNG downloads totaling roughly
+63 MB** via a `for (const hat of hats) { textureLoader.load(...) }`
+loop at what was then `src/main.js:1106-1111`. On mobile cellular these
+downloads fired in parallel with `idle.mp4`, `room.png` (4.9 MB),
+`ambient.mp3` (2.3 MB), the Vite JS bundle, and Google Fonts. At
+~1-5 MB/s mobile throughput, the hat pool alone could take 12-60 s to
+fully land, stealing bandwidth from the idle video and slowing the
+first playable frame. This was the clear dominant remaining lag
+contributor, specifically on mobile / iframe cold boots.
+
+Fix: smallest safe move scoped strictly to the hat texture pipeline.
+Nothing else was touched.
+
+What changed inside `src/main.js`:
+
+- Replaced the eager preload loop with a `hats.map(...)` that
+  allocates 15 empty `new THREE.Texture()` placeholder objects, each
+  with `colorSpace = SRGBColorSpace` set. Every downstream reference
+  to `hatTextures[i]` is immediately valid (truthy, renderable), so
+  `createHatDisplay3D()`, `setHatIndex()`, and the initial
+  `showHat(currentHatIndex)` call at what is now around line ~1896
+  can bind materials at scene-ready time without any guard changes.
+- Added a `hatTexturesPreloadKicked` flag and a
+  `kickHatTexturePreload()` function that iterates the hats array and
+  fetches each image via `new Image()` with `decoding = 'async'` and
+  `fetchPriority = 'low'` where supported (Chrome 101+, Safari 17.2+,
+  Firefox 132+; older browsers silently ignore the hint). On
+  successful load, the image element is assigned onto the
+  corresponding placeholder's `.image` and `needsUpdate = true` is
+  set so bound materials pick up the new pixels on the next render
+  tick. On error, the placeholder stays empty (fully culled by the
+  existing `alphaTest: 0.35` on all three hat planes, so no visible
+  artifact).
+- `kickHatTexturePreload()` is idempotent via the flag guard and is
+  wired into three code paths: the `bootIdleVideo` `loadeddata` event
+  handler (primary path), the `bootIdleVideo?.readyState >= 2` fast
+  path right below the event wiring (covers the race where the
+  preload hint has already populated the buffer by the time the
+  module runs), and `markBootIdleLoadFailed()` as a failure fallback
+  so the retry path still has textures available if the user
+  eventually succeeds past an initial idle load failure.
+- The deferred kick happens in the same spot where walk load is
+  kicked, meaning hats and walk begin their downloads at the same
+  instant -- but with the `fetchPriority = 'low'` hint the browser
+  scheduler keeps hats behind walk and any other default-priority
+  resources, as defense in depth on top of the "wait for idle" gate.
+
+What was not changed:
+- Three.js TextureLoader usage for `room.png` and the environment
+  map remains eager. room.png is 4.9 MB and is on the crate scene
+  critical path, so it is intentionally left alone.
+- `new Audio()` preload for `ambient.mp3`, `sound.mp3`, `open.mp3`,
+  `close.mp3`, `claim.mp3`. Touching the audio preload flags would
+  risk the iframe audio unlock system, which `docs/known-fragile-areas.md`
+  explicitly marks as do-not-touch unless audio is confirmed broken.
+- `showHat(currentHatIndex)` at module init still sets
+  `resultImage.src = hat.image` for the mainline DOM `<img>` inside
+  the result panel. That triggers a single eager PNG fetch for the
+  mainline hat only (~7.3 MB), but is left alone this pass because
+  it would require restructuring the result-panel initialization
+  flow for a marginal additional win.
+- The spin reel cycling logic, winner selection, gold prestige pass,
+  `createHatDisplay3D()`, and all state machine transitions are
+  structurally untouched. The reel still cycles all 15 hats
+  visually; early cycles simply render invisible if their texture
+  has not landed yet (alphaTest cull).
+- No MP4 re-encoding. The 2026-04-09 MP4 reliability pass is fully
+  preserved (`index.html` preload link, walk `preload="metadata"`,
+  serialized load, timeout watchdogs, Tap To Retry recovery).
+- Boot phase state machine (`BOOT_PHASES`), `startIdleVideo`,
+  `startWalkVideo`, `finishBootVideoHandoff`, `beginWalkFade`,
+  `handleWalkVideoTimeUpdate`, walk fade threshold computation.
+- Boot layer DOM, CSS class toggles, tactical HUD polish, CTA copy.
+- Eligibility model, `crate_spins:N`, `crate_hat_won:HAT-ID`, all
+  `/api/*` endpoints, Shopify integration.
+- Preview path, purchased path, spin cadence, winner selection,
+  winner-only gold prestige pass, result panel, post-claim reset.
+- Theme wrapper, Shopify admin, iframe embed, customer handoff,
+  guest email CTA path, `ak-mb-prestart`, `ak-mb-release`,
+  bunker monitor shell. Shopify theme repo was NOT touched in this
+  pass.
+- Public asset files in `public/hats/`. The ~5.2 MB of unused legacy
+  placeholders (`hat1.png` through `hat5.png`) are still present on
+  disk but continue to be unreferenced by any code path, so they do
+  not affect the critical bandwidth budget.
+
+Net feel target: on mobile cold boots, the idle video reaches its
+first playable frame visibly faster because the hat PNG pool is no
+longer racing it for bandwidth at module init. Walk continues to
+download serialized behind idle as before. Hats populate
+asynchronously in the background once idle is ready, with
+`fetchPriority = 'low'` keeping them out of the way of walk. By the
+time the user reaches the spin phase (idle video play + Enter Portal
+click + walk video play + crate intro tilt + Press X prompt + lid
+open ~ 10 s minimum on even a fast connection), the overwhelming
+majority of hats should be fully cached on any realistic mobile link.
+
+---
+
 ## 2026-04-09 -- Intro MP4 reliability pass: preload hint, serialized load, error+timeout recovery
 
 **Type:** Minimal crate-side boot-video reliability fix. `index.html`,

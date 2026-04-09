@@ -786,6 +786,10 @@ function markBootIdleLoadFailed(message) {
   bootIdleLoadFailed = true
   audioState.lastError = message || 'Idle video failed to load'
   updateBootPresentation()
+  // Fallback: even though the idle video download failed, the user may
+  // still reach a spin via the retry path, so make sure the deferred hat
+  // preload is kicked at least once. Idempotent via the flag guard.
+  kickHatTexturePreload()
 }
 
 function markBootWalkLoadFailed(message) {
@@ -915,6 +919,12 @@ bootIdleVideo?.addEventListener('loadeddata', () => {
   if (!walkLoadKicked) {
     kickBootWalkLoad()
   }
+  // Defer hat PNG preload until now (instead of at module init) so the
+  // ~63 MB hat pool no longer competes with idle.mp4 for first-paint
+  // bandwidth on mobile. Walk starts at the same moment, but the hats
+  // use fetchPriority="low" so the browser scheduler lets walk finish
+  // first when bandwidth is constrained.
+  kickHatTexturePreload()
 })
 
 bootIdleVideo?.addEventListener('error', () => {
@@ -997,6 +1007,7 @@ if (bootIdleVideo?.readyState >= 2) {
   if (!walkLoadKicked) {
     kickBootWalkLoad()
   }
+  kickHatTexturePreload()
 }
 
 if (bootWalkVideo?.readyState >= 2) {
@@ -1103,11 +1114,56 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
 const textureLoader = new THREE.TextureLoader()
 
-const hatTextures = []
-for (const hat of hats) {
-  const texture = textureLoader.load(hat.image)
-  texture.colorSpace = THREE.SRGBColorSpace
-  hatTextures.push(texture)
+// Hat textures are allocated as empty placeholders here so that every
+// reference to `hatTextures[i]` is immediately valid (so createHatDisplay3D
+// and showHat can bind materials at scene-ready time even before the PNG
+// bodies have arrived). The actual image data is fetched later by
+// `kickHatTexturePreload()` which is wired into the boot video readiness
+// path below.
+//
+// Why defer: the 15 hat PNGs total roughly 63 MB and were previously
+// eagerly kicked at module init, directly competing with idle.mp4 for
+// first-paint bandwidth on mobile. The hat display root is hidden at
+// READY state and all three hat planes use `alphaTest: 0.35`, so an
+// empty placeholder texture renders as fully culled with no visible
+// artifact. Once each image arrives we set `texture.image = img` and
+// `texture.needsUpdate = true`, and the bound materials pick up the new
+// pixels on the next render tick without any remount.
+const hatTextures = hats.map(() => {
+  const tex = new THREE.Texture()
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+})
+
+let hatTexturesPreloadKicked = false
+function kickHatTexturePreload() {
+  if (hatTexturesPreloadKicked) return
+  hatTexturesPreloadKicked = true
+  hats.forEach((hat, i) => {
+    const placeholder = hatTextures[i]
+    if (!placeholder || placeholder.image) return
+    const img = new Image()
+    img.decoding = 'async'
+    // fetchPriority is a browser hint (Chrome 101+, Safari 17.2+,
+    // Firefox 132+). Older browsers ignore it. This tells the scheduler
+    // to keep the hat downloads behind the playing idle/walk videos and
+    // any other default-priority resources, as a belt-and-suspenders
+    // complement to the kick-after-idle-ready deferral.
+    if ('fetchPriority' in img) {
+      img.fetchPriority = 'low'
+    }
+    img.onload = () => {
+      placeholder.image = img
+      placeholder.needsUpdate = true
+    }
+    img.onerror = () => {
+      // Non-fatal: the placeholder stays empty and the alphaTest cull
+      // keeps the hat plane invisible for this index. The spin reel will
+      // simply skip past it visually; the finalize/preview payload is
+      // unaffected because it keys off hat IDs, not textures.
+    }
+    img.src = hat.image
+  })
 }
 
 textureLoader.load(

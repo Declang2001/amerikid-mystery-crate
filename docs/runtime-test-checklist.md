@@ -298,6 +298,25 @@ Each item should be tested manually unless automated tests exist.
 
 ---
 
+## 16. Deferred hat texture preload
+
+- [ ] DevTools > Network tab, cold cache. On initial page load, NONE of the 15 hat PNGs in `/hats/*.png` should appear in the request waterfall until AFTER `idle.mp4` has reached a ready state (`loadeddata`)
+- [ ] After idle is ready, the 15 hat PNGs should appear in the Network tab with `Priority: Low` (Chrome) or equivalent low-priority marker. Browsers without `fetchPriority` support will show default priority -- that is expected and non-blocking
+- [ ] The `resultImage` DOM `<img>` inside the result panel still loads the mainline hat eagerly on initial `showHat(currentHatIndex)` (this is unchanged and expected)
+- [ ] During `idle` -> `walk` -> crate intro -> Press X -> lid open -> spin reel on a fast desktop connection, all 15 hats are fully loaded and visible in the reel cycle
+- [ ] On a Slow 3G throttle, the reel cycle may briefly skip frames where a hat texture has not yet landed -- those frames render invisible (alphaTest cull) rather than a placeholder color, pink flash, or broken image. The reel timing is unchanged
+- [ ] When any hat eventually loads mid-spin, the next reel swap onto that index shows the correct image without a visible material remount or flicker
+- [ ] The winning hat always ends up visually correct in the result panel: even if the Three.js 3D plane was still loading during the reel, by the time WINNER_SELECTED pulses the winning hat texture is populated (or completes populating without a visible remount)
+- [ ] Preview path end-to-end: spin lands on a hat, result panel shows hat name and DOM `<img>`, Proceed to Checkout forwards the correct variant. Unchanged
+- [ ] Purchased path end-to-end: spin, Save Result writes `crate_hat_won:HAT-ID`, post-claim reload returns to intro. Unchanged
+- [ ] `markBootIdleLoadFailed` code path still kicks the hat preload as a fallback (verify by blocking `*idle.mp4` in DevTools, letting the timeout fire, then checking Network tab that hat PNG requests still began after the failure)
+- [ ] Bundle size sanity: `npm run build` reports a JS bundle growth of <1 KB gzipped compared to the prior commit
+- [ ] No console errors on cold boot, normal boot, throttled boot, blocked-idle boot, or after retry
+- [ ] Boot layer DOM, CTA copy, tactical HUD polish, walk fade threshold, post-claim reload, `Tap To Retry` paths are all visibly identical
+- [ ] Iframe context: all of the above holds inside the Shopify theme iframe embed
+
+---
+
 ## Notes
 
 - Items marked with **Iframe test** or **iOS Safari test** require testing in the actual
@@ -310,3 +329,5 @@ Each item should be tested manually unless automated tests exist.
   hidden mystery-hat product
 - Section 15 network-blocking tests require Chrome DevTools Network > Block request URL
   feature. Throttling tests require Chrome DevTools Network > Throttling presets.
+- Section 16 tests the deferred hat texture preload. `fetchPriority` is a modern browser
+  hint; older browsers ignore it and fall back to default scheduling.
