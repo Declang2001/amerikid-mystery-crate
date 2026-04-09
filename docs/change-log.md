@@ -5,6 +5,14 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-08 -- Audio mix correction: spin 0.30, SFX 0.25, crate ambient 0.08 with spin ducking
+
+**Type:** Volume rebalance + ambient ducking. `src/main.js`.
+
+Lowered spin jingle from `0.35` to `0.30`. Lowered open/close SFX from `0.40` to `0.25`. Raised normal crate-scene ambient from `0.05` to `0.08`. Added spin-time ambient ducking: ambient drops to `0.05` when spin starts, restores to `0.08` after the winner hat lands. Portal ambient unchanged at `0.10`. Claim SFX unchanged. No timing, file, unlock, or logic changes.
+
+---
+
 ## 2026-04-08 -- Lower spin audio from 0.45 to 0.35 and raise open/close SFX from 0.35 to 0.40
 
 **Type:** Volume rebalance. `src/main.js`.

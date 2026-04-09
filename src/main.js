@@ -436,7 +436,8 @@ ambientAudio.preload = 'auto'
 ambientAudio.loop = true
 ambientAudio.volume = 0.10
 const AMBIENT_VOLUME_PORTAL = 0.10
-const AMBIENT_VOLUME_CRATE = 0.05
+const AMBIENT_VOLUME_CRATE = 0.08
+const AMBIENT_VOLUME_SPIN = 0.05
 
 // ALL audio elements that need unlocking (includes spinAudio)
 const allAudioElements = [spinAudio, openSfx, closeSfx, claimSfx, ambientAudio]
@@ -1394,7 +1395,7 @@ function animateLidTo(targetAngle, duration = 900) {
 
 function openCrate(durationMs) {
   if (crateIsOpen) return Promise.resolve()
-  playSfx(openSfx, 0.40)
+  playSfx(openSfx, 0.25)
   if (usingFallback) {
     return animateLidTo(fallbackOpenAngle, durationMs || 800).then(() => {
       crateIsOpen = true
@@ -1410,7 +1411,7 @@ function openCrate(durationMs) {
 
 function closeCrate() {
   if (!crateIsOpen) return Promise.resolve()
-  playSfx(closeSfx, 0.40)
+  playSfx(closeSfx, 0.25)
   if (usingFallback) {
     return animateLidTo(0, 800).then(() => {
       crateIsOpen = false
@@ -1581,9 +1582,10 @@ async function startSpin() {
   // Now start spinning: state, audio, and animation all begin together
   setState(STATES.SPINNING)
   spinAudio.currentTime = 0
-  spinAudio.volume = 0.35
+  spinAudio.volume = 0.30
   spinAudio.loop = shouldLoop
   spinAudio.play().catch(() => {})
+  ambientAudio.volume = AMBIENT_VOLUME_SPIN
 
   function animateSpin(now) {
     const elapsed = now - spinStartTime
@@ -1613,6 +1615,7 @@ async function startSpin() {
         currentHatIndex = spinWinnerIndex
         showHat(currentHatIndex)
       }
+      ambientAudio.volume = AMBIENT_VOLUME_CRATE
       setState(STATES.WINNER_SELECTED)
       spinAnimationId = null
     }
