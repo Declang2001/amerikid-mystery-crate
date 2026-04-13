@@ -5,6 +5,86 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-13 -- Pending-result bridge: fallback-only durability for paid winners between consume and finalize
+
+**Type:** Fallback-only resilience pass. Smallest safe move.
+`api/_lib/shopify.js`, `api/pending-result.js` (new), `src/main.js`,
+`docs/source-of-truth.md`, `docs/runtime-test-checklist.md`,
+`docs/change-log.md`. Theme wrapper, preview path, audio, camera, scene,
+and multi-combo logic all untouched.
+
+Before: a purchased spin decremented `crate_spins:N` before the reel
+ran, and the winner was only client-side until the customer clicked
+Save Result. A tab close, network failure, or reload between consume
+and finalize silently lost the paid result. The customer was also
+dropped into preview mode by `fetchEligibility` when `spins_remaining`
+reached zero, further hiding the loss.
+
+Change: a tags-only pending-result bridge.
+
+- New tag shape: `crate_pending_result:<HAT-ID>:<UNIX-MS>`. Single
+  tag per customer, latest wins. Ignored by all pre-existing parsers
+  because it is a new prefix. Cleared by `finalizeResult` in the same
+  `PUT` that writes `crate_hat_won:<HAT-ID>`.
+- `api/_lib/shopify.js`:
+  - Added `TAG_PREFIX_PENDING`, `parsePendingResult`,
+    `removePendingTags`, and `writePendingResult(customerId, hatId)`.
+  - `writePendingResult` refuses to write if a finalized hat already
+    exists (preserves the single-claim invariant).
+  - `finalizeResult` now also strips `crate_pending_result:*` tags
+    alongside `crate_spins:*` and prior `crate_hat_won:*`.
+  - `checkEligibility` now returns `pending_result: { hat_id,
+    timestamp } | null`.
+- `api/pending-result.js` (new endpoint): `POST` with
+  `{ customer_id, hat_id }`. Validates `hat_id` via existing
+  `isValidHatId`. Mirrors the CORS + error shape of the other API
+  routes.
+- `src/main.js`:
+  - Eligibility state gains `pendingResult`.
+  - `fetchEligibility` captures `data.pending_result` and arms a
+    new one-shot `hasPendingResume` flag when a pending tag exists
+    and `hatWon` is null. The preview fallback no longer flips
+    `isPreviewMode` in that case, so the customer stays on the
+    purchased path.
+  - New `writePendingResultServer(hatId)` fire-and-forget helper.
+  - Reel-complete tail calls it the moment the paid winner lands at
+    `setState(STATES.WINNER_SELECTED)`. Does not block UX. Preview
+    spins do not trigger the write (gated on `isPurchasedSpin`).
+  - `startSpin` has a new top-of-function resume branch. When
+    `hasPendingResume` is set, it skips inventory gate, skips
+    consume, skips the reel entirely, opens the crate, and lands
+    directly on the pending hat at `WINNER_SELECTED`. Save Result
+    then finalizes with the pending `hat_id`. The flag is consumed
+    one-shot.
+  - If the pending `hat_id` is no longer in the local `hats` pool
+    (data mismatch), the resume branch aborts quietly without
+    consuming a spin.
+
+Untouched:
+- Preview path, `buildComboCheckoutUrl`, combo redirect destination.
+- `consumeSpin`, `crate_spins:N` semantics, the single-claim
+  `crate_hat_won:*` overwrite block in `finalizeResult`.
+- Audio, camera, scene, state machine transitions. The resume path
+  reuses the existing `openCrate` + `setState(STATES.WINNER_SELECTED)`
+  pair; it does not introduce new states or scene behavior.
+- Theme wrapper, iframe embed contract, `customer_id` handoff.
+- `src/hats.js`, `api/available-hats.js`, `api/_lib/allowed-hats.js`.
+
+Deferred to later passes (explicitly out of scope here):
+- Multi-combo support. The `crate_hat_won:*` overwrite invariant is
+  the load-bearing single-claim guarantee and is untouched. Customers
+  who buy a second combo after a prior finalize still cannot finalize
+  a new hat on the current tag model.
+- Closing the ~6 second reel-in-progress gap between consume and
+  `WINNER_SELECTED`. The pending write happens at the winner-landed
+  moment; interruption during the reel itself still loses the spin.
+- Self-service restore endpoint. Recovery is a manual Shopify admin
+  tag edit for now.
+- Metafield migration. Right shape long term, larger blast radius;
+  deferred until scope is verified.
+
+---
+
 ## 2026-04-13 -- Preview path wording pass: "Buy Combo Pack" CTA + preview-only copy
 
 **Type:** Copy-only. `src/main.js`, `docs/runtime-test-checklist.md`,

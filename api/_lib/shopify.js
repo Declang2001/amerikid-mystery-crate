@@ -16,6 +16,10 @@ const API_VERSION = process.env.SHOPIFY_API_VERSION || '2024-10'
 
 const TAG_PREFIX_SPINS = 'crate_spins:'
 const TAG_PREFIX_HAT_WON = 'crate_hat_won:'
+// Fallback-only pending-result bridge.
+// Tag shape: crate_pending_result:<HAT-ID>:<UNIX-MS>
+// Written on winner-landed, cleared on finalize, read by checkEligibility.
+const TAG_PREFIX_PENDING = 'crate_pending_result:'
 
 // Module-scope token cache
 let cachedToken = null
@@ -189,6 +193,38 @@ function removeSpinTags(tags) {
   return tags.filter(t => !t.startsWith(TAG_PREFIX_SPINS))
 }
 
+/**
+ * Parse the most recent pending-result tag. Returns null if no valid tag exists.
+ * Tag format: crate_pending_result:<HAT-ID>:<UNIX-MS>
+ * @param {string[]} tags
+ * @returns {{ hat_id: string, timestamp: number } | null}
+ */
+function parsePendingResult(tags) {
+  let best = null
+  for (const tag of tags) {
+    if (!tag.startsWith(TAG_PREFIX_PENDING)) continue
+    const rest = tag.slice(TAG_PREFIX_PENDING.length)
+    const idx = rest.lastIndexOf(':')
+    if (idx <= 0) continue
+    const hatId = rest.slice(0, idx)
+    const ts = parseInt(rest.slice(idx + 1), 10)
+    if (!hatId || !Number.isFinite(ts)) continue
+    if (!best || ts > best.timestamp) {
+      best = { hat_id: hatId, timestamp: ts }
+    }
+  }
+  return best
+}
+
+/**
+ * Remove all crate_pending_result:* tags from a tag array
+ * @param {string[]} tags
+ * @returns {string[]}
+ */
+function removePendingTags(tags) {
+  return tags.filter(t => !t.startsWith(TAG_PREFIX_PENDING))
+}
+
 // --- Public API Functions ---
 
 /**
@@ -213,6 +249,7 @@ export async function checkEligibility(customerId) {
     logged_in: true,
     spins_remaining: parseSpinsRemaining(customer.tags),
     hat_won: parseHatWon(customer.tags),
+    pending_result: parsePendingResult(customer.tags),
     tags: customer.tags
   }
 }
@@ -274,14 +311,51 @@ export async function finalizeResult(customerId, hatId) {
     return { ok: false, reason: 'Hat already finalized' }
   }
 
-  // Remove all spin tags (no more spins after finalize) and any stale hat_won tags
+  // Remove all spin tags, any stale hat_won tags, and any pending-result tags
+  // (pending bridge is resolved by finalize, so it must not survive the write).
   const baseTags = customer.tags
-    .filter(t => !t.startsWith(TAG_PREFIX_HAT_WON) && !t.startsWith(TAG_PREFIX_SPINS))
+    .filter(t =>
+      !t.startsWith(TAG_PREFIX_HAT_WON) &&
+      !t.startsWith(TAG_PREFIX_SPINS) &&
+      !t.startsWith(TAG_PREFIX_PENDING)
+    )
   baseTags.push(`${TAG_PREFIX_HAT_WON}${hatId}`)
 
   await updateCustomerTags(customerId, baseTags)
 
   return { ok: true }
+}
+
+/**
+ * Write a fallback-only pending-result tag. Replaces any prior pending tag.
+ * Rejects if a hat has already been finalized (no-op by design).
+ * @param {string} customerId
+ * @param {string} hatId
+ * @returns {Promise<{ok: boolean, reason?: string, timestamp?: number}>}
+ */
+export async function writePendingResult(customerId, hatId) {
+  if (!hatId || typeof hatId !== 'string' || hatId.length === 0) {
+    return { ok: false, reason: 'Missing or invalid hat_id' }
+  }
+
+  const customer = await getCustomer(customerId)
+
+  if (!customer) {
+    return { ok: false, reason: 'Customer not found' }
+  }
+
+  // If a hat has already been finalized, do not overwrite with a pending tag.
+  if (parseHatWon(customer.tags)) {
+    return { ok: false, reason: 'Hat already finalized' }
+  }
+
+  const timestamp = Date.now()
+  const baseTags = removePendingTags(customer.tags)
+  baseTags.push(`${TAG_PREFIX_PENDING}${hatId}:${timestamp}`)
+
+  await updateCustomerTags(customerId, baseTags)
+
+  return { ok: true, timestamp }
 }
 
 /**

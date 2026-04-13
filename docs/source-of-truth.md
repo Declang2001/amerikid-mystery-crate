@@ -1,7 +1,7 @@
 # Source of Truth
 
 > Last synced: 2026-04-13
-> Status: Preview CTA redirected to the $50 combo product page (exact-hat preview checkout retained in code for future reuse), entitlement model implemented, purchased flow corrected, 15-hat pool wired, inventory-aware pool filtering implemented, audio mix balanced (spin 0.30, SFX 0.25/1.0, ambient 0.10/0.08/0.05-spin), spin-start variation added, spin easing wind-up added, winner-only prestige pass added (gold grail glow, impact/sustain/settle envelope, steady hold), front-half spin cadence calmed (EXTRA_FULL_ROTATIONS_MAX 2 to 1), tactical HUD polish applied to boot cards and result panel (classified-console corner brackets, scanlines, Black Ops One titles, beveled tactical buttons, cyan/amber/gold state language), post-claim reset added (purchased-path CLAIMED holds briefly then reloads to intro), intro MP4 reliability pass applied (idle.mp4 preload link in index.html, walk download serialized behind idle loadeddata, post-parse crossOrigin mutation removed, idle/walk timeout watchdog + Tap To Retry fallback), hat texture preload deferred off the first-paint critical path (placeholder Textures at module init, deferred kickHatTexturePreload with fetchPriority="low" wired into idle readiness so the ~63 MB hat pool no longer competes with idle.mp4 on mobile cold boot).
+> Status: Pending-result bridge added (fallback-only tag `crate_pending_result:<HAT-ID>:<UNIX-MS>`, written on winner-landed, cleared on finalize, resumed on reload when hat_won is null), preview CTA redirected to the $50 combo product page (exact-hat preview checkout retained in code for future reuse), entitlement model implemented, purchased flow corrected, 15-hat pool wired, inventory-aware pool filtering implemented, audio mix balanced (spin 0.30, SFX 0.25/1.0, ambient 0.10/0.08/0.05-spin), spin-start variation added, spin easing wind-up added, winner-only prestige pass added (gold grail glow, impact/sustain/settle envelope, steady hold), front-half spin cadence calmed (EXTRA_FULL_ROTATIONS_MAX 2 to 1), tactical HUD polish applied to boot cards and result panel (classified-console corner brackets, scanlines, Black Ops One titles, beveled tactical buttons, cyan/amber/gold state language), post-claim reset added (purchased-path CLAIMED holds briefly then reloads to intro), intro MP4 reliability pass applied (idle.mp4 preload link in index.html, walk download serialized behind idle loadeddata, post-parse crossOrigin mutation removed, idle/walk timeout watchdog + Tap To Retry fallback), hat texture preload deferred off the first-paint critical path (placeholder Textures at module init, deferred kickHatTexturePreload with fetchPriority="low" wired into idle readiness so the ~63 MB hat pool no longer competes with idle.mp4 on mobile cold boot).
 
 This document is the authoritative working direction for the AmeriKid Mystery Crate launch.
 All implementation decisions should reference this file.
@@ -92,10 +92,19 @@ New direction:
 ### Current repo state (implemented)
 - `api/_lib/shopify.js` uses numeric tag `crate_spins:N` and hat tag `crate_hat_won:HAT-ID`
 - `consumeSpin()` decrements `crate_spins:N` by 1; removes tag at 0
-- `finalizeResult()` writes `crate_hat_won:HAT-ID`, removes all `crate_spins:*` tags, rejects if hat already finalized
+- `finalizeResult()` writes `crate_hat_won:HAT-ID`, removes all `crate_spins:*` tags, clears any `crate_pending_result:*`, rejects if hat already finalized
 - `api/_lib/allowed-hats.js` provides server-side hat ID validation
 - `/api/finalize` validates hat_id against the allowed set before writing
 - Old `spin_ready` / `spin_in_progress` tags are ignored but not cleaned up
+
+### Pending-result bridge (fallback-only, tags-only)
+- Tag shape: `crate_pending_result:<HAT-ID>:<UNIX-MS>`. Single tag per customer, latest wins.
+- Written by `POST /api/pending-result` the moment the paid reel lands on a winner (purchased path only, fire-and-forget from the client).
+- Surfaced by `/api/eligibility` as `pending_result: { hat_id, timestamp } | null`.
+- Cleared by `finalizeResult()` in the same `PUT` that writes `crate_hat_won:HAT-ID`.
+- On reload, if `pending_result` is set and `hat_won` is null, the client stays on the purchased path (does not fall into preview) and resumes the exact landed hat on the next spin trigger: no consume, no reel, direct land at `WINNER_SELECTED` ready for Save Result.
+- Bridge is single-claim only. Multi-combo support is explicitly deferred; the `crate_hat_won:*` overwrite block in `finalizeResult` is unchanged.
+- There is no self-service restore-spin endpoint. Support recovery is a manual Shopify admin tag edit on `crate_pending_result:*` / `crate_spins:*` / `crate_hat_won:*`.
 
 ---
 

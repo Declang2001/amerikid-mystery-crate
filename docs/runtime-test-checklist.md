@@ -138,6 +138,24 @@ Each item should be tested manually unless automated tests exist.
 
 ---
 
+## 6b. Pending-Result Bridge (fallback-only)
+
+- [ ] `POST /api/pending-result` writes `crate_pending_result:<HAT-ID>:<UNIX-MS>` (single tag, replaces any prior pending tag)
+- [ ] `POST /api/pending-result` rejects invalid `hat_id` with 400
+- [ ] `POST /api/pending-result` rejects when the customer already has `crate_hat_won:*` (no overwrite)
+- [ ] `GET /api/eligibility` returns `pending_result: { hat_id, timestamp }` when the tag exists, `null` otherwise
+- [ ] On a purchased spin, the client fires `/api/pending-result` the moment the reel lands on the winner (Network tab shows a single POST in the WINNER_SELECTED transition)
+- [ ] The pending write does not block Save Result: finalize runs even if the pending POST is still in flight or has failed
+- [ ] `POST /api/finalize` on success removes any `crate_pending_result:*` tag in the same PUT that writes `crate_hat_won:<HAT-ID>`
+- [ ] Simulated interruption: with `crate_spins:2`, spin once so `WINNER_SELECTED` fires, then hard-reload before clicking Save Result. On reload, eligibility still shows `spins_remaining: 1` and `pending_result: { hat_id: <the landed hat>, timestamp: ... }`
+- [ ] On reload with pending present and `hat_won` null, the client stays on the purchased path (does NOT flip to preview) even if `spins_remaining === 0`
+- [ ] On reload with pending present, pressing X / tapping the crate opens it and lands directly on the pending hat without running the reel, without playing spin audio, and without consuming any spins
+- [ ] Save Result on the resumed pending result finalizes with the correct `hat_id` and Shopify now has `crate_hat_won:<HAT-ID>`, no `crate_pending_result:*`, and no `crate_spins:<N>`
+- [ ] If the pending `hat_id` is no longer in `src/hats.js` (data mismatch), the resume branch aborts quietly without consuming a spin and without crashing
+- [ ] Pending bridge is a no-op on the preview path (preview never writes `crate_pending_result:*`)
+
+---
+
 ## 7. API Endpoints
 
 - [ ] `GET /api/eligibility?customer_id=X` returns correct status

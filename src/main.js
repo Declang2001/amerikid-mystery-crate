@@ -17,6 +17,8 @@ const eligibility = {
   loggedIn: false,
   spinsRemaining: 0,
   hatWon: null,
+  // Fallback-only pending-result bridge: { hat_id, timestamp } | null
+  pendingResult: null,
   checked: false,
   loading: false,
   error: null
@@ -24,6 +26,10 @@ const eligibility = {
 
 // Track if current spin is a purchased (entitled) spin
 let isPurchasedSpin = false
+// One-shot flag: set at load time when a pending-result tag survives on the
+// customer without a finalized hat. Causes startSpin to resume the exact
+// landed hat instead of consuming a new spin or rerolling.
+let hasPendingResume = false
 // Track preview spins used this session (local only, resets on refresh)
 let previewSpinsUsed = 0
 const PREVIEW_SPIN_LIMIT = 1
@@ -161,13 +167,22 @@ async function fetchEligibility() {
     eligibility.loggedIn = data.logged_in
     eligibility.spinsRemaining = data.spins_remaining || 0
     eligibility.hatWon = data.hat_won || null
+    eligibility.pendingResult = data.pending_result || null
     eligibility.checked = true
     eligibility.error = null
+
+    // Fallback-only pending-result bridge. If the customer has a pending hat
+    // from a prior consumed-but-unsaved spin, arm the resume path and do NOT
+    // drop them into preview mode even when spinsRemaining is 0. The resume
+    // path uses the pending hat as the winner and skips consume + reel.
+    const hasPending = Boolean(eligibility.pendingResult && !eligibility.hatWon)
+    hasPendingResume = hasPending
 
     // Logged-in user with no purchased spins: fall back to preview.
     // This includes customers who already saved a hat (hatWon truthy) so they
     // can still access the non-binding preview path after their purchased flow.
-    if (eligibility.spinsRemaining === 0) {
+    // Pending-resume customers are held on the purchased path so they can save.
+    if (eligibility.spinsRemaining === 0 && !hasPending) {
       isPreviewMode = true
     }
   } catch (err) {
@@ -198,6 +213,25 @@ async function consumeSpinEntitlement() {
   } catch (err) {
     console.error('Consume spin error:', err)
     return false
+  }
+}
+
+// Fire-and-forget pending-result write. Called once per purchased spin at the
+// moment the reel lands on the winner. Does not block UX or gate finalize.
+// Server rejects if the customer already has a finalized hat, which is fine
+// (single-claim invariant still applies). Server strips the pending tag on
+// a subsequent successful finalize.
+function writePendingResultServer(hatId) {
+  if (!customerId || !hatId) return
+  try {
+    fetch('/api/pending-result', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customer_id: customerId, hat_id: hatId })
+    }).catch(() => {})
+  } catch (_) {
+    // Swallow: pending write is best-effort. Save Result is still the
+    // authoritative persistence path.
   }
 }
 
@@ -1776,6 +1810,52 @@ async function startSpin() {
     return
   }
 
+  // --- Pending-result resume (fallback-only, one-shot) ---
+  // The customer has a paid winner on file from a prior interrupted session.
+  // Skip inventory gate, skip consume, skip reel. Replay the exact landed hat
+  // so Save Result can finalize it. Inventory is intentionally not rechecked:
+  // the spin was already paid for and the hat was selected from an available
+  // pool at the time of the original spin.
+  if (hasPendingResume && eligibility.pendingResult?.hat_id) {
+    const pendingHatId = eligibility.pendingResult.hat_id
+    const pendingIndex = hats.findIndex(h => h.id === pendingHatId)
+    if (pendingIndex < 0) {
+      // Pending hat id is no longer in the pool (data mismatch). Abort
+      // quietly; the customer can contact support with their pending tag.
+      hasPendingResume = false
+      return
+    }
+    hasPendingResume = false
+
+    // Cancel any pending auto-close and mirror the post-open setup.
+    cancelAutoClose()
+    if (spinAnimationId) {
+      cancelAnimationFrame(spinAnimationId)
+      spinAnimationId = null
+    }
+    if (crateIsOpen) {
+      await closeCrate()
+    }
+
+    setState(STATES.OPENING)
+    await ensureAudioReady(openSfx)
+    const openMs = isFinite(openSfx.duration) && openSfx.duration > 0
+      ? Math.max(300, Math.min(6000, openSfx.duration * 1000))
+      : 800
+    await openCrate(openMs)
+
+    spinWinnerIndex = pendingIndex
+    spinWinnerHat = hats[pendingIndex]
+    spinWinnerHatId = spinWinnerHat.id
+    spinWinnerHatName = spinWinnerHat.name
+    currentHatIndex = pendingIndex
+    showHat(currentHatIndex)
+    isPurchasedSpin = true
+    ambientAudio.volume = AMBIENT_VOLUME_CRATE
+    setState(STATES.WINNER_SELECTED)
+    return
+  }
+
   // --- Inventory Availability Check (before any spin consumption) ---
   await fetchAvailableHats()
   if (availabilityError || availableHatIds === null) {
@@ -1899,6 +1979,12 @@ async function startSpin() {
       }
       ambientAudio.volume = AMBIENT_VOLUME_CRATE
       setState(STATES.WINNER_SELECTED)
+      // Fallback-only: persist the paid winner as a pending tag so a session
+      // interruption between here and Save Result can resume the exact hat.
+      // Fire-and-forget; finalize is still the authoritative persistence path.
+      if (isPurchasedSpin && spinWinnerHat?.id) {
+        writePendingResultServer(spinWinnerHat.id)
+      }
       spinAnimationId = null
     }
   }
