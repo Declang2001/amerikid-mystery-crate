@@ -272,6 +272,16 @@ function resolvePreviewCheckoutOrigin() {
   return null
 }
 
+// Combo product destination for the preview CTA. Preview no longer purchases the
+// exact revealed hat variant; it forwards users to the $50 combo product page so
+// the normal purchased flow fulfills the mystery hat. buildPreviewCheckoutUrl is
+// preserved below for possible future reuse of exact-hat preview checkout.
+const COMBO_CHECKOUT_URL = 'https://amerikid.ca/products/candyfacts-mystery-box-combo'
+
+function buildComboCheckoutUrl() {
+  return COMBO_CHECKOUT_URL
+}
+
 function buildPreviewCheckoutUrl(hat) {
   if (!hat?.shopifyVariantId) {
     throw new Error('Missing Shopify variant mapping for the selected hat.')
@@ -1404,13 +1414,13 @@ function updatePanelPresentation() {
   } else if (hasWinner && isResultState) {
     if (isPreviewMode) {
       if (currentState === STATES.CLAIMING) {
-        subtitleText = 'Opening checkout for this exact hat'
-        labelText = 'Exact Hat Checkout'
-        statusText = withFallbackNote(`Loading checkout for ${winnerName}`)
+        subtitleText = 'Opening the $50 combo product page'
+        labelText = 'Combo Checkout'
+        statusText = withFallbackNote('Loading the Candy Facts Mystery Box Combo')
       } else {
-        subtitleText = 'Proceed to checkout for this exact hat'
+        subtitleText = 'Buy the $50 combo to unlock a real mystery hat'
         labelText = 'Preview Result'
-        statusText = withFallbackNote(`Proceed to Checkout adds ${winnerName}`)
+        statusText = withFallbackNote('Proceed to Checkout opens the $50 combo product')
       }
     } else if (currentState === STATES.CLAIMED) {
       subtitleText = 'Your result is locked in for fulfillment'
@@ -1937,22 +1947,19 @@ claimBtn.addEventListener('click', async () => {
   // Allow finalize from both WINNER_SELECTED and WINNER_PENDING_CLAIM
   if (currentState !== STATES.WINNER_SELECTED && currentState !== STATES.WINNER_PENDING_CLAIM) return
 
-  // --- Preview path: redirect to checkout ---
+  // --- Preview path: redirect to the $50 combo product page ---
+  // Preview no longer purchases the exact revealed hat variant. The combo
+  // product handles shirt size + mystery hat fulfillment downstream.
+  // buildPreviewCheckoutUrl is preserved above for future reuse.
   if (isPreviewMode) {
-    let previewCheckoutUrl = ''
-    try {
-      previewCheckoutUrl = buildPreviewCheckoutUrl(spinWinnerHat)
-    } catch (err) {
-      alert(err.message || 'Unable to start preview checkout.')
-      return
-    }
+    const comboUrl = buildComboCheckoutUrl()
 
     cancelAutoClose()
     playSfx(claimSfx, 1)
     setState(STATES.CLAIMING)
     await closeCrate()
     setQuestionMarksVisible(true)
-    redirectToCheckout(previewCheckoutUrl)
+    redirectToCheckout(comboUrl)
     return
   }
 

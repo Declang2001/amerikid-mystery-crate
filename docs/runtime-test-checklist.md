@@ -84,9 +84,11 @@ Each item should be tested manually unless automated tests exist.
 - [ ] User gets 1 preview spin
 - [ ] Preview spin plays full animation and reveals a hat
 - [ ] After preview result, only "Proceed to Checkout" is visible (no Spin Again, no generic spin button)
-- [ ] Preview result panel clearly communicates that Proceed to Checkout forwards the exact revealed hat
-- [ ] Clicking "Proceed to Checkout" closes the crate, then redirects to Shopify using the exact revealed hat variant ID with quantity 1
-- [ ] Shopify checkout contains the exact revealed hat variant, not a generic mystery hat product or wrong variant
+- [ ] Preview result panel copy does NOT imply the exact revealed hat is added to checkout (no "this exact hat" wording)
+- [ ] Preview result panel communicates that Proceed to Checkout opens the $50 combo product
+- [ ] Clicking "Proceed to Checkout" closes the crate, then redirects top-frame to `https://amerikid.ca/products/candyfacts-mystery-box-combo`
+- [ ] Redirect uses `window.top.location.href` when embedded (iframe context) and `window.location.href` otherwise
+- [ ] Shopify destination is the combo product page, not the hidden mystery-hat variant cart permalink
 - [ ] Preview result is NOT persisted to Shopify
 - [ ] Refreshing the page allows another preview spin (acceptable for launch)
 - [ ] Signed-in customer with `crate_hat_won` tag and 0 spins enters preview mode (not dead-end purchased path)
@@ -152,7 +154,7 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Client Credentials Grant successfully mints a token
 - [ ] Token is used for customer read/write operations
 - [ ] Customer metafield (or tag) is written with correct hat ID after finalize
-- [ ] Preview checkout cart permalink uses the `shopifyVariantId` mapped to the revealed hat in `src/hats.js`
+- [ ] Preview CTA redirects to the $50 combo product URL (`https://amerikid.ca/products/candyfacts-mystery-box-combo`). Exact-hat cart permalink helper (`buildPreviewCheckoutUrl`) remains in `src/main.js` but is not invoked by the preview CTA
 - [ ] Shopify Flow correctly adds entitlement on combo purchase (requires Shopify admin test)
 
 ---

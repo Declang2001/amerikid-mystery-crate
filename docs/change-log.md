@@ -5,6 +5,62 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-13 -- Preview CTA redirects to $50 combo product instead of exact-hat cart permalink
+
+**Type:** Crate-repo-only redirect + copy change. Smallest safe move.
+`src/main.js`, `docs/source-of-truth.md`, `docs/runtime-test-checklist.md`,
+`docs/change-log.md`.
+
+Before: on the preview path, clicking "Proceed to Checkout" built a
+`/cart/{shopifyVariantId}:1` permalink for the exact revealed hat via
+`buildPreviewCheckoutUrl(spinWinnerHat)` and redirected the user to
+Shopify. The result panel copy told the user the "exact" revealed hat
+was being added to checkout. This conflicted with the launch direction
+that preview users should always be routed into the $50 combo purchase
+path, not a per-hat purchase of the hidden mystery-hat product.
+
+Change: the preview branch of the `claimBtn` handler now redirects to
+`https://amerikid.ca/products/candyfacts-mystery-box-combo` via a new
+`buildComboCheckoutUrl()` helper backed by a `COMBO_CHECKOUT_URL`
+constant. The existing `buildPreviewCheckoutUrl()` helper and every
+`shopifyVariantId` entry in `src/hats.js` are left intact for possible
+future reuse of exact-hat preview checkout.
+
+Preview result panel copy no longer implies the revealed hat is being
+added to checkout. Updated strings in `updatePanelPresentation`:
+- Idle preview result: subtitle "Buy the $50 combo to unlock a real
+  mystery hat", label "Preview Result", status "Proceed to Checkout
+  opens the $50 combo product".
+- While redirecting (`CLAIMING`): subtitle "Opening the $50 combo
+  product page", label "Combo Checkout", status "Loading the Candy
+  Facts Mystery Box Combo".
+
+Untouched:
+- Purchased path, `finalizeSpinResult`, `/api/finalize`,
+  `crate_hat_won:HAT-ID` persistence, `crate_spins:N` decrement, the
+  post-claim reload.
+- `/api/available-hats`, `/api/eligibility`, `/api/consume-spin`,
+  `/api/claim-spin`.
+- Inventory-aware pool filter (still read-only, still gates both
+  paths).
+- Audio, camera, scene behavior, state machine, tactical HUD polish,
+  intro MP4 reliability, deferred hat texture preload.
+- Shopify theme wrapper, iframe embed contract, `customer_id`
+  handoff.
+- `src/hats.js`, including every `shopifyVariantId` mapping.
+
+Known follow-ups (out of scope this pass):
+- Preview hat persistence across combo purchase is not implemented.
+- Whether `/api/available-hats` should continue to gate the preview
+  reel now that preview never commits to the revealed variant is a
+  product decision. Left unchanged for launch.
+- Copy in older docs that still references "exact revealed hat"
+  preview checkout will be reconciled incrementally; this pass
+  updated only the source-of-truth and runtime-test-checklist bullets
+  that directly contradict the new behavior.
+
+---
+
 ## 2026-04-09 -- Deferred hat texture preload: keep ~63 MB of PNGs off the first-paint critical path
 
 **Type:** Mobile-first lag audit follow-up. Smallest safe crate-side

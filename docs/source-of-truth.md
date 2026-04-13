@@ -1,7 +1,7 @@
 # Source of Truth
 
-> Last synced: 2026-04-09
-> Status: Entitlement model implemented, purchased flow corrected, 15-hat pool wired, exact preview checkout wired, inventory-aware pool filtering implemented, audio mix balanced (spin 0.30, SFX 0.25/1.0, ambient 0.10/0.08/0.05-spin), spin-start variation added, spin easing wind-up added, winner-only prestige pass added (gold grail glow, impact/sustain/settle envelope, steady hold), front-half spin cadence calmed (EXTRA_FULL_ROTATIONS_MAX 2 to 1), tactical HUD polish applied to boot cards and result panel (classified-console corner brackets, scanlines, Black Ops One titles, beveled tactical buttons, cyan/amber/gold state language), post-claim reset added (purchased-path CLAIMED holds briefly then reloads to intro), intro MP4 reliability pass applied (idle.mp4 preload link in index.html, walk download serialized behind idle loadeddata, post-parse crossOrigin mutation removed, idle/walk timeout watchdog + Tap To Retry fallback), hat texture preload deferred off the first-paint critical path (placeholder Textures at module init, deferred kickHatTexturePreload with fetchPriority="low" wired into idle readiness so the ~63 MB hat pool no longer competes with idle.mp4 on mobile cold boot).
+> Last synced: 2026-04-13
+> Status: Preview CTA redirected to the $50 combo product page (exact-hat preview checkout retained in code for future reuse), entitlement model implemented, purchased flow corrected, 15-hat pool wired, inventory-aware pool filtering implemented, audio mix balanced (spin 0.30, SFX 0.25/1.0, ambient 0.10/0.08/0.05-spin), spin-start variation added, spin easing wind-up added, winner-only prestige pass added (gold grail glow, impact/sustain/settle envelope, steady hold), front-half spin cadence calmed (EXTRA_FULL_ROTATIONS_MAX 2 to 1), tactical HUD polish applied to boot cards and result panel (classified-console corner brackets, scanlines, Black Ops One titles, beveled tactical buttons, cyan/amber/gold state language), post-claim reset added (purchased-path CLAIMED holds briefly then reloads to intro), intro MP4 reliability pass applied (idle.mp4 preload link in index.html, walk download serialized behind idle loadeddata, post-parse crossOrigin mutation removed, idle/walk timeout watchdog + Tap To Retry fallback), hat texture preload deferred off the first-paint critical path (placeholder Textures at module init, deferred kickHatTexturePreload with fetchPriority="low" wired into idle readiness so the ~63 MB hat pool no longer competes with idle.mp4 on mobile cold boot).
 
 This document is the authoritative working direction for the AmeriKid Mystery Crate launch.
 All implementation decisions should reference this file.
@@ -58,7 +58,8 @@ CLAUDE.md and README.md still reflect the older spin-era concept and have not be
 - Customer gets **1 preview spin**
 - Preview spin is non-binding (no durable persistence needed)
 - After preview result, only "Proceed to Checkout" is shown (no Spin Again, no generic spin button)
-- Clicking "Proceed to Checkout" sends the user to Shopify checkout for the exact matching revealed hat variant using a cart permalink (`/cart/{variant_id}:1`)
+- Clicking "Proceed to Checkout" sends the user to the $50 combo product page (`https://amerikid.ca/products/candyfacts-mystery-box-combo`). Preview no longer purchases the exact revealed hat variant; the revealed hat is illustrative only. Copy in the result panel reflects this.
+- The older exact-hat cart permalink helper (`buildPreviewCheckoutUrl`, `/cart/{variant_id}:1`) is preserved in `src/main.js` for possible future reuse but is not wired to the preview CTA
 - Refresh loophole on preview path is acceptable for launch
 - Preview result does not need reservation-safe logic
 
@@ -149,10 +150,10 @@ The crate must durably persist the final purchased hat result.
 | Winner hat data not durably persisted | Fixed: `crate_hat_won:HAT-ID` written on finalize, validated server-side |
 | Entitlement model is boolean tags only | Fixed: numeric `crate_spins:N` tag, zeroed on finalize |
 | Shopify Flow tied to old $20 spin product | Stale: must be rewired to combo product |
-| Combo product does not exist in Shopify admin | Missing |
+| Combo product live in Shopify admin | Confirmed 2026-04-13: `https://amerikid.ca/products/candyfacts-mystery-box-combo`. Preview CTA redirects here. |
 | App scopes may be too narrow for metafields | Unknown: needs verification |
 | Mystery pool is inventory-blind (sold-out hats can be landed on) | Fixed: `GET /api/available-hats` filters pool by live variant inventory. Requires `read_products` scope on Partners app |
-| Preview checkout does not route to the exact revealed hat | Fixed: preview forward action now uses the matching `shopifyVariantId` cart permalink |
+| Preview checkout routed to exact revealed hat variant | Superseded 2026-04-13: preview CTA now redirects to the $50 combo product page (`/products/candyfacts-mystery-box-combo`). Exact-hat helper retained in code for future reuse. |
 | CLAUDE.md describes old spin-era architecture | Stale |
 | README.md describes old spin-era product | Stale |
 | Copy in `src/main.js` says "Log in to Claim", "Buy a Spin to Claim" | Stale |
