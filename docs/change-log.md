@@ -5,6 +5,41 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-13 -- Preview path wording pass: "Buy Combo Pack" CTA + preview-only copy
+
+**Type:** Copy-only. `src/main.js`, `docs/runtime-test-checklist.md`,
+`docs/change-log.md`. No behavior changed.
+
+Change: preview CTA button label and preview result panel copy
+tightened so the preview path reads clearly as preview-only and
+directs users at the combo pack, not the revealed hat.
+
+- CTA button label: `Proceed to Checkout` -> `Buy Combo Pack`.
+- Preview idle result copy in `updatePanelPresentation`:
+  - subtitle: `Preview only. Buy the combo pack to unlock your real spins.`
+  - label: `Preview Only`
+  - status: `Buy Combo Pack opens the $50 combo product page`
+- Preview `CLAIMING` state copy:
+  - subtitle: `Opening the combo pack product page`
+  - label: `Combo Pack`
+  - status unchanged (`Loading the Candy Facts Mystery Box Combo`)
+- Dead local `winnerName` removed from `updatePanelPresentation` (no
+  consumer remained after the preview strings dropped the hat name).
+
+Untouched:
+- Redirect destination (`COMBO_CHECKOUT_URL` =
+  `https://amerikid.ca/products/candyfacts-mystery-box-combo`).
+- Preview behavior: still 1 local preview spin, still non-binding,
+  still no modal/overlay, Press X still works before the preview
+  spin.
+- Purchased path, finalize, `crate_spins:N`, `crate_hat_won:HAT-ID`,
+  post-claim reload.
+- Audio, camera, scene, state machine, theme wrapper.
+- `buildPreviewCheckoutUrl` and every `shopifyVariantId` in
+  `src/hats.js` (still retained for future reuse).
+
+---
+
 ## 2026-04-13 -- Preview CTA redirects to $50 combo product instead of exact-hat cart permalink
 
 **Type:** Crate-repo-only redirect + copy change. Smallest safe move.

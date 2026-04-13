@@ -1392,7 +1392,6 @@ function updatePanelPresentation() {
   const canPurchasedSpin = !isPreviewMode && eligibility.spinsRemaining > 0 && !eligibility.hatWon
   const hasSecondaryAction = isResultState && canPurchasedSpin
   const hasWinner = Boolean(spinWinnerHat)
-  const winnerName = spinWinnerHatName || spinWinnerHat?.name || resultName.textContent
 
   panel.classList.toggle('preview-result', isPreviewMode && isResultState && hasWinner)
   panel.classList.toggle('purchased-result', !isPreviewMode && isResultState && hasWinner)
@@ -1414,13 +1413,13 @@ function updatePanelPresentation() {
   } else if (hasWinner && isResultState) {
     if (isPreviewMode) {
       if (currentState === STATES.CLAIMING) {
-        subtitleText = 'Opening the $50 combo product page'
-        labelText = 'Combo Checkout'
+        subtitleText = 'Opening the combo pack product page'
+        labelText = 'Combo Pack'
         statusText = withFallbackNote('Loading the Candy Facts Mystery Box Combo')
       } else {
-        subtitleText = 'Buy the $50 combo to unlock a real mystery hat'
-        labelText = 'Preview Result'
-        statusText = withFallbackNote('Proceed to Checkout opens the $50 combo product')
+        subtitleText = 'Preview only. Buy the combo pack to unlock your real spins.'
+        labelText = 'Preview Only'
+        statusText = withFallbackNote('Buy Combo Pack opens the $50 combo product page')
       }
     } else if (currentState === STATES.CLAIMED) {
       subtitleText = 'Your result is locked in for fulfillment'
@@ -1593,10 +1592,10 @@ function updateControls() {
 
   // --- Finalize / Forward Action Button ---
   if (isPreviewMode) {
-    // Preview: show "Proceed to Checkout" after result, hide after claimed
+    // Preview: show "Buy Combo Pack" after result, hide after claimed
     claimBtn.style.display = (isResultView && currentState !== STATES.CLAIMED) ? 'block' : 'none'
     claimBtn.disabled = false
-    claimBtn.textContent = 'Proceed to Checkout'
+    claimBtn.textContent = 'Buy Combo Pack'
   } else {
     // Purchased: show "Save Result" in finalizable states
     claimBtn.style.display = (isResultView && currentState !== STATES.CLAIMED) ? 'block' : 'none'
