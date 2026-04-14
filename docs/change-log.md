@@ -5,6 +5,55 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-14 -- One-time post-save confirmation card
+
+**Type:** UX addition. Smallest safe crate-repo-only move.
+`src/main.js`, `src/style.css`, `docs/source-of-truth.md`,
+`docs/runtime-test-checklist.md`, `docs/change-log.md`. No server,
+theme, Flow, multi-combo, audio, camera, scene, or state-machine change.
+
+Before: after Save Result succeeded, the purchased path held the
+CLAIMED panel ~2.5s then reloaded to the intro flow. The customer got
+no post-reload confirmation of which hat was actually locked in for
+fulfillment.
+
+After: a sessionStorage key `crate.savedHat.pending` carrying
+`{ hat_id, saved_at }` is written immediately before the existing
+`window.location.reload()` in the post-claim reset. On the next load,
+after `fetchEligibility` resolves and after the boot phase reaches
+`CRATE_VIEW`, the app cross-checks the flag's `hat_id` against
+`eligibility.hatWon`. When both agree and the hat exists in
+`src/hats.js`, a single-use overlay card (`#savedHatOverlay`) displays
+the saved hat image, name, and the copy "Your hat is locked in for
+fulfillment", with a Continue button to dismiss. The flag is removed
+the moment the card renders (or on any mismatch) so it never
+reappears on later visits.
+
+Design notes:
+- sessionStorage scoped to the tab was chosen over localStorage so
+  the flag dies on tab close and over a URL param so it does not
+  leak into shareable links.
+- Display is deferred until after the intro handoff
+  (`setBootPhase(BOOT_PHASES.CRATE_VIEW)`) so the card never competes
+  with the fragile idle.mp4 / walk watchdog overlays.
+- Hat name and image come from the existing `hats.js` module; no new
+  data source and no new server endpoint.
+- Server-side `crate_hat_won:HAT-ID` remains the single source of
+  truth; the flag is only a one-time display trigger, never a
+  persistence surface.
+
+Flow: finalize -> flag written -> reload -> boot intro plays -> boot
+reaches CRATE_VIEW -> card displays once -> Continue hides it. If
+the flag is present but the server does not confirm the same hat
+(race, network, mismatched customer), the flag is discarded silently.
+
+Regression surface: none expected. Finalize, consume,
+pending-result bridge, inventory filter, intro reliability, audio
+unlock, camera, state machine, and marketing-state gating are all
+untouched.
+
+---
+
 ## 2026-04-13 -- Pending-result bridge: fallback-only durability for paid winners between consume and finalize
 
 **Type:** Fallback-only resilience pass. Smallest safe move.

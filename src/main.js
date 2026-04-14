@@ -119,6 +119,17 @@ app.innerHTML = `
         <div id="errorBanner" class="error-banner" role="alert"></div>
       </div>
     </div>
+    <div id="savedHatOverlay" class="saved-hat-overlay" aria-hidden="true">
+      <div class="saved-hat-card" role="dialog" aria-live="polite" aria-labelledby="savedHatName">
+        <p class="saved-hat-kicker">Crate Sealed</p>
+        <div class="saved-hat-media">
+          <img id="savedHatImage" alt="" />
+        </div>
+        <h2 id="savedHatName" class="saved-hat-title">Saved Hat</h2>
+        <p class="saved-hat-copy">Your hat is locked in for fulfillment.</p>
+        <button id="savedHatContinueBtn" class="saved-hat-cta" type="button">Continue</button>
+      </div>
+    </div>
   </div>
 `
 
@@ -154,6 +165,82 @@ eligibilityStatus.style.cssText = `
   border-radius: 4px;
   text-align: center;
 `
+
+// --- Saved-hat one-time confirmation ---
+// A sessionStorage flag is written inside the post-claim reset (right before
+// the intentional reload). After the reload, if the flag matches the server's
+// hat_won, show a one-time confirmation card, then clear the flag.
+const SAVED_HAT_FLAG_KEY = 'crate.savedHat.pending'
+let savedHatPendingFlag = readSavedHatFlag()
+let savedHatOverlayShown = false
+
+function readSavedHatFlag() {
+  try {
+    const raw = window.sessionStorage?.getItem(SAVED_HAT_FLAG_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed.hat_id !== 'string' || !parsed.hat_id) return null
+    return parsed
+  } catch (_) {
+    return null
+  }
+}
+
+function clearSavedHatFlag() {
+  try {
+    window.sessionStorage?.removeItem(SAVED_HAT_FLAG_KEY)
+  } catch (_) { /* no-op */ }
+  savedHatPendingFlag = null
+}
+
+function writeSavedHatFlag(hatId) {
+  if (!hatId) return
+  try {
+    window.sessionStorage?.setItem(
+      SAVED_HAT_FLAG_KEY,
+      JSON.stringify({ hat_id: hatId, saved_at: Date.now() })
+    )
+  } catch (_) { /* no-op */ }
+}
+
+function maybeShowSavedHatOverlay() {
+  if (savedHatOverlayShown) return
+  if (!savedHatPendingFlag) return
+  if (!eligibility.checked) return
+  if (bootPhase !== BOOT_PHASES.CRATE_VIEW) return
+
+  const flagHatId = savedHatPendingFlag.hat_id
+  const serverHatId = eligibility.hatWon
+
+  // Server did not confirm the same hat: discard flag silently, do not display.
+  if (!serverHatId || serverHatId !== flagHatId) {
+    clearSavedHatFlag()
+    return
+  }
+
+  const hat = hats.find(h => h.id === flagHatId)
+  if (!hat) {
+    clearSavedHatFlag()
+    return
+  }
+
+  const overlay = document.querySelector('#savedHatOverlay')
+  const img = document.querySelector('#savedHatImage')
+  const name = document.querySelector('#savedHatName')
+  if (!overlay || !img || !name) {
+    clearSavedHatFlag()
+    return
+  }
+
+  img.src = hat.image
+  img.alt = hat.name
+  name.textContent = hat.name
+  overlay.classList.add('visible')
+  overlay.setAttribute('aria-hidden', 'false')
+
+  savedHatOverlayShown = true
+  clearSavedHatFlag()
+}
 
 // --- Eligibility API Helpers ---
 async function fetchEligibility() {
@@ -191,6 +278,7 @@ async function fetchEligibility() {
   } finally {
     eligibility.loading = false
     updateEligibilityUI()
+    maybeShowSavedHatOverlay()
   }
 }
 
@@ -393,6 +481,18 @@ if (!isPreviewMode && customerId) {
 
 // Fetch hat inventory availability on load (both preview and purchased)
 fetchAvailableHats()
+
+// Saved-hat overlay continue action: hide the card and return the user to the
+// normal intro surface. The flag is already cleared on display, so this
+// dismiss is purely visual.
+const savedHatOverlayEl = document.querySelector('#savedHatOverlay')
+const savedHatContinueBtn = document.querySelector('#savedHatContinueBtn')
+if (savedHatContinueBtn && savedHatOverlayEl) {
+  savedHatContinueBtn.addEventListener('click', () => {
+    savedHatOverlayEl.classList.remove('visible')
+    savedHatOverlayEl.setAttribute('aria-hidden', 'true')
+  })
+}
 
 openBtn.style.display = 'none'
 closeBtn.style.display = ''
@@ -757,6 +857,9 @@ function updateBootPresentation() {
 function setBootPhase(nextPhase) {
   bootPhase = nextPhase
   updateBootPresentation()
+  if (bootPhase === BOOT_PHASES.CRATE_VIEW) {
+    maybeShowSavedHatOverlay()
+  }
 }
 
 function pauseBootVideo(video, reset = false) {
@@ -2085,6 +2188,10 @@ claimBtn.addEventListener('click', async () => {
     // then reload the page back to the intro flow. Gated strictly inside
     // the purchased-path branch (the preview branch returned earlier via
     // redirectToCheckout and never reaches here).
+    // Stash the saved hat id so the next load can show a one-time
+    // confirmation card. sessionStorage survives this intentional reload but
+    // dies on tab close, giving the card a single natural lifetime.
+    writeSavedHatFlag(spinWinnerHat.id)
     if (postClaimReloadTimerId) {
       clearTimeout(postClaimReloadTimerId)
     }

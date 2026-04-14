@@ -156,6 +156,24 @@ Each item should be tested manually unless automated tests exist.
 
 ---
 
+## 6c. One-time post-save confirmation card
+
+- [ ] With a purchased spin, finalize via Save Result. Before the reload fires, `sessionStorage.getItem('crate.savedHat.pending')` is a JSON string `{ "hat_id": "<HAT-ID>", "saved_at": <unix-ms> }`
+- [ ] After the post-claim reload, the intro plays normally (no overlay during idle/walk). The overlay appears only after the boot phase reaches `CRATE_VIEW`
+- [ ] Overlay shows: "Crate Sealed" kicker, the saved hat image, the saved hat name (from `src/hats.js`), copy "Your hat is locked in for fulfillment", and a single Continue button
+- [ ] Clicking Continue hides the overlay and does not re-trigger it on further interaction
+- [ ] Reloading the page at this point does NOT show the overlay again (sessionStorage key was cleared on display)
+- [ ] Closing and reopening the tab with the same URL does NOT show the overlay (sessionStorage dies with the tab)
+- [ ] Works for first-save flow (customer goes from 2 spins to saved)
+- [ ] Works for second-save flow after Spin Again (customer goes from 1 spin to saved)
+- [ ] If the sessionStorage flag exists but `eligibility.hat_won` is null or different, the overlay does NOT display and the flag is removed
+- [ ] If the server returns `hat_won` but the flag is absent (fresh browser), the overlay does NOT display
+- [ ] If the flag's `hat_id` is not in `src/hats.js` (data mismatch), the overlay does NOT display and the flag is removed
+- [ ] Overlay never appears during intro (idle.mp4 / walk / Tap To Retry fallback) and never blocks the intro sequence
+- [ ] Overlay does not affect finalize, consume, pending-result bridge, inventory, or state machine
+
+---
+
 ## 7. API Endpoints
 
 - [ ] `GET /api/eligibility?customer_id=X` returns correct status
