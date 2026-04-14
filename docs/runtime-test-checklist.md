@@ -156,21 +156,21 @@ Each item should be tested manually unless automated tests exist.
 
 ---
 
-## 6c. One-time post-save confirmation card
+## 6c. Saved-hat confirmation popup (immediate, Continue-gated reload)
 
-- [ ] With a purchased spin, finalize via Save Result. Before the reload fires, `sessionStorage.getItem('crate.savedHat.pending')` is a JSON string `{ "hat_id": "<HAT-ID>", "saved_at": <unix-ms> }`
-- [ ] After the post-claim reload, the intro plays normally (no overlay during idle/walk). The overlay appears only after the boot phase reaches `CRATE_VIEW`
-- [ ] Overlay shows: "Crate Sealed" kicker, the saved hat image, the saved hat name (from `src/hats.js`), copy "Your hat is locked in for fulfillment", and a single Continue button
-- [ ] Clicking Continue hides the overlay and does not re-trigger it on further interaction
-- [ ] Reloading the page at this point does NOT show the overlay again (sessionStorage key was cleared on display)
-- [ ] Closing and reopening the tab with the same URL does NOT show the overlay (sessionStorage dies with the tab)
+- [ ] With a purchased spin, click Save Result. The popup appears immediately after CLAIMED (no reload, no Tap To Enable Sound replay, no intro replay in between)
+- [ ] Popup shows: "Crate Sealed" kicker, saved hat image, saved hat name from `src/hats.js`, copy "Your hat is locked in for fulfillment", and a single Continue button. Visuals unchanged from prior pass
+- [ ] The page does NOT auto-reload while the popup is visible; it waits for Continue
+- [ ] Clicking Continue hides the popup and reloads the page back to the intro flow
+- [ ] After the Continue-driven reload, the popup does NOT reappear (sessionStorage flag was cleared on immediate show)
 - [ ] Works for first-save flow (customer goes from 2 spins to saved)
 - [ ] Works for second-save flow after Spin Again (customer goes from 1 spin to saved)
-- [ ] If the sessionStorage flag exists but `eligibility.hat_won` is null or different, the overlay does NOT display and the flag is removed
-- [ ] If the server returns `hat_won` but the flag is absent (fresh browser), the overlay does NOT display
+- [ ] Force-reload failsafe: with the popup visible, press browser reload instead of Continue. On the reloaded page, after the intro handoff reaches `CRATE_VIEW`, the popup is rendered one more time (post-reload trigger path). Clicking Continue reloads and it does not reappear again
+- [ ] During the immediate display, `sessionStorage.getItem('crate.savedHat.pending')` is null (cleared by `showSavedHatOverlayImmediate`)
+- [ ] If the sessionStorage flag exists on boot but `eligibility.hat_won` is null or different, the overlay does NOT display and the flag is removed
 - [ ] If the flag's `hat_id` is not in `src/hats.js` (data mismatch), the overlay does NOT display and the flag is removed
-- [ ] Overlay never appears during intro (idle.mp4 / walk / Tap To Retry fallback) and never blocks the intro sequence
-- [ ] Overlay does not affect finalize, consume, pending-result bridge, inventory, or state machine
+- [ ] The immediate popup never appears during intro (idle.mp4 / walk / Tap To Retry fallback) because it only fires from the post-finalize CLAIMED branch
+- [ ] Popup does not affect finalize, consume, pending-result bridge, inventory, or state machine
 
 ---
 

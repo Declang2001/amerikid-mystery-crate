@@ -5,6 +5,54 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-14 -- Saved-hat confirmation: immediate-show, Continue-gated reload
+
+**Type:** Timing adjustment. Smallest safe crate-repo-only move.
+`src/main.js`, `docs/source-of-truth.md`, `docs/runtime-test-checklist.md`,
+`docs/change-log.md`. No visual redesign, no server change, no theme,
+no Flow, no multi-combo, no audio/camera/scene change.
+
+Before: after Save Result succeeded, the purchased path set
+`STATES.CLAIMED`, wrote the sessionStorage flag, and started a 2.5s
+`POST_CLAIM_RELOAD_HOLD_MS` timer that reloaded the page. The
+confirmation popup only appeared after the reload, once the intro had
+replayed and the boot phase had reached `CRATE_VIEW`. Customers had
+to sit through Tap To Enable Sound and the portal/walk intro before
+seeing confirmation of the hat they had just saved.
+
+After: a new `showSavedHatOverlayImmediate(hatId)` helper displays the
+same popup inside the existing `closeCrate().then` block right after
+`setState(STATES.CLAIMED)`, using `spinWinnerHat` which is already in
+scope. The old 2500ms auto-reload timer and its module-scope
+`POST_CLAIM_RELOAD_HOLD_MS` + `postClaimReloadTimerId` constants are
+removed. The existing `#savedHatContinueBtn` handler now calls
+`window.location.reload()` after hiding the overlay, so the reset
+only fires when the customer clicks Continue.
+
+Retained as failsafes:
+- `writeSavedHatFlag(spinWinnerHat.id)` still fires before the
+  immediate show. If the customer hard-reloads while the popup is
+  visible, the existing post-reload trigger path renders it one more
+  time. Immediate-show calls `clearSavedHatFlag()` so a normal
+  Continue click never causes a second display post-reload.
+- `savedHatOverlayShown` module flag prevents duplicate renders
+  within a session across both the immediate path and the
+  post-reload failsafe path.
+- `maybeShowSavedHatOverlay()` hooks from `setBootPhase(CRATE_VIEW)`
+  and `fetchEligibility` `finally` remain in place; they are
+  no-ops in the normal Continue flow because the flag was cleared.
+
+Visuals: unchanged. Same `#savedHatOverlay`, same `.saved-hat-card`,
+same copy "Your hat is locked in for fulfillment", same tactical
+HUD styling in `src/style.css`.
+
+Regression surface: none expected. Finalize, consume,
+pending-result bridge, inventory filter, eligibility API, CLAIMED
+state transition, audio, camera, scene, intro reliability, and
+Press X prompt are all untouched.
+
+---
+
 ## 2026-04-14 -- One-time post-save confirmation card
 
 **Type:** UX addition. Smallest safe crate-repo-only move.

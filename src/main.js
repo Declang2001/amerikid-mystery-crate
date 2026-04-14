@@ -203,6 +203,34 @@ function writeSavedHatFlag(hatId) {
   } catch (_) { /* no-op */ }
 }
 
+// Immediate display: fired from the post-finalize CLAIMED branch. Does not
+// wait for a reload or the boot handoff. Bypasses the eligibility cross-check
+// because finalize just succeeded and spinWinnerHat is the authoritative id.
+function showSavedHatOverlayImmediate(hatId) {
+  if (savedHatOverlayShown) return
+  if (!hatId) return
+
+  const hat = hats.find(h => h.id === hatId)
+  const overlay = document.querySelector('#savedHatOverlay')
+  const img = document.querySelector('#savedHatImage')
+  const name = document.querySelector('#savedHatName')
+  if (!overlay || !img || !name) return
+
+  const displayName = hat?.name || spinWinnerHatName || hatId
+  const displayImage = hat?.image || ''
+
+  img.src = displayImage
+  img.alt = displayName
+  name.textContent = displayName
+  overlay.classList.add('visible')
+  overlay.setAttribute('aria-hidden', 'false')
+
+  savedHatOverlayShown = true
+  // Continue will reload; clearing the flag prevents the post-reload failsafe
+  // path from rendering the card a second time in this session.
+  clearSavedHatFlag()
+}
+
 function maybeShowSavedHatOverlay() {
   if (savedHatOverlayShown) return
   if (!savedHatPendingFlag) return
@@ -482,15 +510,16 @@ if (!isPreviewMode && customerId) {
 // Fetch hat inventory availability on load (both preview and purchased)
 fetchAvailableHats()
 
-// Saved-hat overlay continue action: hide the card and return the user to the
-// normal intro surface. The flag is already cleared on display, so this
-// dismiss is purely visual.
+// Saved-hat overlay continue action: hide the card and reload back to the
+// intro flow. The reload previously ran on a post-claim timer; Continue now
+// gates it so the customer controls when the experience resets.
 const savedHatOverlayEl = document.querySelector('#savedHatOverlay')
 const savedHatContinueBtn = document.querySelector('#savedHatContinueBtn')
 if (savedHatContinueBtn && savedHatOverlayEl) {
   savedHatContinueBtn.addEventListener('click', () => {
     savedHatOverlayEl.classList.remove('visible')
     savedHatOverlayEl.setAttribute('aria-hidden', 'true')
+    window.location.reload()
   })
 }
 
@@ -1227,13 +1256,6 @@ const POST_OPEN_PAUSE_JITTER_MS = 400
 // Auto-close chest after winner is shown (Part B)
 const AUTO_CLOSE_AFTER_WINNER_MS = 2500
 let autoCloseTimerId = null
-
-// Purchased-path only: after finalize success lands on CLAIMED, hold the
-// "Saved Result" confirmation briefly then reload the page back to the intro
-// flow. Existing eligibility logic (spinsRemaining=0 + hatWon truthy) will
-// route the returning customer naturally into post-purchase preview mode.
-const POST_CLAIM_RELOAD_HOLD_MS = 2500
-let postClaimReloadTimerId = null
 
 const BACKGROUND_URL = '/room.png'
 const BG_Y_ROT = -0.6
@@ -2184,21 +2206,14 @@ claimBtn.addEventListener('click', async () => {
     setQuestionMarksVisible(true)
     finalizeInProgress = false
     isPurchasedSpin = false
-    // Purchased-path only: hold the "Saved Result" confirmation briefly,
-    // then reload the page back to the intro flow. Gated strictly inside
-    // the purchased-path branch (the preview branch returned earlier via
-    // redirectToCheckout and never reaches here).
-    // Stash the saved hat id so the next load can show a one-time
-    // confirmation card. sessionStorage survives this intentional reload but
-    // dies on tab close, giving the card a single natural lifetime.
+    // Purchased-path only: show the saved-hat confirmation immediately.
+    // Continue now gates the reload (see #savedHatContinueBtn handler).
+    // The sessionStorage flag is still written as a force-reload failsafe:
+    // if the user hard-reloads while the popup is visible, the post-reload
+    // trigger path renders it one more time. The immediate show clears the
+    // flag so the Continue-driven reload does not re-render the card.
     writeSavedHatFlag(spinWinnerHat.id)
-    if (postClaimReloadTimerId) {
-      clearTimeout(postClaimReloadTimerId)
-    }
-    postClaimReloadTimerId = setTimeout(() => {
-      postClaimReloadTimerId = null
-      window.location.reload()
-    }, POST_CLAIM_RELOAD_HOLD_MS)
+    showSavedHatOverlayImmediate(spinWinnerHat.id)
   })
 })
 
