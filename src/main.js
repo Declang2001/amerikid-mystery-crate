@@ -173,6 +173,10 @@ eligibilityStatus.style.cssText = `
 const SAVED_HAT_FLAG_KEY = 'crate.savedHat.pending'
 let savedHatPendingFlag = readSavedHatFlag()
 let savedHatOverlayShown = false
+// Preview-only confirm overlay continuation. Set when the preview popup is
+// shown, invoked by #savedHatContinueBtn. Keeps preview path semantics
+// fully isolated from the purchased saved-hat reload path.
+let previewContinueAction = null
 
 function readSavedHatFlag() {
   try {
@@ -229,6 +233,34 @@ function showSavedHatOverlayImmediate(hatId) {
   // Continue will reload; clearing the flag prevents the post-reload failsafe
   // path from rendering the card a second time in this session.
   clearSavedHatFlag()
+}
+
+// Preview-only: reuse the overlay shell with distinct copy and a continuation
+// callback. Does NOT set savedHatOverlayShown, does NOT write/clear the
+// crate.savedHat.pending sessionStorage flag, does NOT imply a saved or
+// finalized result. The overlay acts as a pre-redirect confirmation only.
+function showPreviewConfirmOverlay(hat, onContinue) {
+  const overlay = document.querySelector('#savedHatOverlay')
+  const img = document.querySelector('#savedHatImage')
+  const name = document.querySelector('#savedHatName')
+  const kicker = overlay?.querySelector('.saved-hat-kicker')
+  const copy = overlay?.querySelector('.saved-hat-copy')
+  const cta = document.querySelector('#savedHatContinueBtn')
+  if (!overlay || !img || !name || !cta) return
+
+  const displayName = hat?.name || spinWinnerHatName || hat?.id || ''
+  const displayImage = hat?.image || ''
+
+  img.src = displayImage
+  img.alt = displayName
+  name.textContent = displayName
+  if (kicker) kicker.textContent = 'PREVIEW SELECTED'
+  if (copy) copy.textContent = "THIS IS THE HAT YOU'RE TAKING INTO CHECKOUT. CONTINUE TO OPEN THE CANDY FACTS MYSTERY BOX COMBO."
+  cta.textContent = 'CONTINUE TO COMBO PACK'
+
+  previewContinueAction = typeof onContinue === 'function' ? onContinue : null
+  overlay.classList.add('visible')
+  overlay.setAttribute('aria-hidden', 'false')
 }
 
 function maybeShowSavedHatOverlay() {
@@ -428,8 +460,10 @@ function resolvePreviewCheckoutOrigin() {
 // preserved below for possible future reuse of exact-hat preview checkout.
 const COMBO_CHECKOUT_URL = 'https://amerikid.ca/products/candyfacts-mystery-box-combo'
 
-function buildComboCheckoutUrl() {
-  return COMBO_CHECKOUT_URL
+function buildComboCheckoutUrl(hat) {
+  const hatId = hat?.id
+  if (!hatId) return COMBO_CHECKOUT_URL
+  return `${COMBO_CHECKOUT_URL}?preview_hat_id=${encodeURIComponent(hatId)}`
 }
 
 function buildPreviewCheckoutUrl(hat) {
@@ -519,6 +553,15 @@ if (savedHatContinueBtn && savedHatOverlayEl) {
   savedHatContinueBtn.addEventListener('click', () => {
     savedHatOverlayEl.classList.remove('visible')
     savedHatOverlayEl.setAttribute('aria-hidden', 'true')
+    // Preview path: run the stashed continuation (redirect) instead of
+    // reloading. Purchased path leaves previewContinueAction null and
+    // falls through to the reload-to-intro behavior.
+    if (previewContinueAction) {
+      const action = previewContinueAction
+      previewContinueAction = null
+      action()
+      return
+    }
     window.location.reload()
   })
 }
@@ -2162,14 +2205,19 @@ claimBtn.addEventListener('click', async () => {
   // product handles shirt size + mystery hat fulfillment downstream.
   // buildPreviewCheckoutUrl is preserved above for future reuse.
   if (isPreviewMode) {
-    const comboUrl = buildComboCheckoutUrl()
+    const previewHat = spinWinnerHat
+    const comboUrl = buildComboCheckoutUrl(previewHat)
 
     cancelAutoClose()
     playSfx(claimSfx, 1)
     setState(STATES.CLAIMING)
     await closeCrate()
     setQuestionMarksVisible(true)
-    redirectToCheckout(comboUrl)
+    // Preview-only confirmation popup. Continue redirects to the combo
+    // product page with preview_hat_id in the URL. Popup deliberately
+    // uses preview-only copy and never marks the result as saved or
+    // finalized.
+    showPreviewConfirmOverlay(previewHat, () => redirectToCheckout(comboUrl))
     return
   }
 

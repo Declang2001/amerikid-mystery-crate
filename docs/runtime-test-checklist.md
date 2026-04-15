@@ -86,7 +86,11 @@ Each item should be tested manually unless automated tests exist.
 - [ ] After preview result, only "Buy Combo Pack" is visible (no Spin Again, no generic spin button)
 - [ ] Preview result panel copy does NOT imply the exact revealed hat is added to checkout (no "this exact hat" wording)
 - [ ] Preview result panel reads "Preview only. Buy the combo pack to unlock your real spins." with a "Preview Only" label chip
-- [ ] Clicking "Buy Combo Pack" closes the crate, then redirects top-frame to `https://amerikid.ca/products/candyfacts-mystery-box-combo`
+- [ ] Clicking "Buy Combo Pack" does NOT redirect immediately; it opens the preview-only confirmation overlay after closing the crate
+- [ ] Preview overlay shows kicker `PREVIEW SELECTED` (rendered with `[ ]` brackets from CSS), the landed hat image, the landed hat name, body copy `THIS IS THE HAT YOU'RE TAKING INTO CHECKOUT. CONTINUE TO OPEN THE CANDY FACTS MYSTERY BOX COMBO.`, and CTA `CONTINUE TO COMBO PACK`
+- [ ] Preview overlay copy never reads "saved", "finalized", "claimed", or "locked in"
+- [ ] Preview overlay does NOT write `crate.savedHat.pending` sessionStorage and does NOT set the purchased single-show flag
+- [ ] Clicking `CONTINUE TO COMBO PACK` hides the overlay and redirects top-frame to `https://amerikid.ca/products/candyfacts-mystery-box-combo?preview_hat_id=<HAT-ID>` where `<HAT-ID>` matches the landed hat in `src/hats.js`
 - [ ] Redirect uses `window.top.location.href` when embedded (iframe context) and `window.location.href` otherwise
 - [ ] Shopify destination is the combo product page, not the hidden mystery-hat variant cart permalink
 - [ ] Preview result is NOT persisted to Shopify

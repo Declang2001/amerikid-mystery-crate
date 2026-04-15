@@ -5,6 +5,61 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-15 -- Preview-only confirmation popup + preview_hat_id URL carry
+
+**Type:** Preview-path UX + handoff precondition. Smallest safe crate-side
+move. `src/main.js`, `docs/source-of-truth.md`,
+`docs/runtime-test-checklist.md`, `docs/change-log.md`. No purchased-path
+change, no API change, no server change, no theme edit, no Shopify admin
+change, no Flow change, no audio/camera/scene change, no inventory
+change, no state machine change.
+
+Before: preview "Buy Combo Pack" redirected directly from the finalize
+handler (`src/main.js:2164-2173`) to the bare combo product URL. No
+preview-only confirmation moment. No hat identity carried into the
+combo page URL.
+
+After: the preview branch of the finalize handler plays claim SFX, sets
+`STATES.CLAIMING`, closes the crate, then opens a preview-only
+confirmation overlay populated from `spinWinnerHat`. The overlay reuses
+the existing `#savedHatOverlay` DOM shell but overwrites kicker, body,
+and CTA copy at show time (`PREVIEW SELECTED` / `THIS IS THE HAT
+YOU'RE TAKING INTO CHECKOUT. CONTINUE TO OPEN THE CANDY FACTS MYSTERY
+BOX COMBO.` / `CONTINUE TO COMBO PACK`). Overlay never sets the
+purchased single-show flag (`savedHatOverlayShown`) and never writes or
+clears the `crate.savedHat.pending` sessionStorage key. A new
+module-scope `previewContinueAction` stashes the redirect continuation
+so the existing `#savedHatContinueBtn` handler branches on preview vs
+purchased: preview invokes the stashed continuation and redirects to
+the combo page; purchased keeps the existing `window.location.reload()`
+behavior unchanged.
+
+`buildComboCheckoutUrl` now accepts an optional hat argument. When a
+hat with an `id` is passed, the returned URL appends
+`?preview_hat_id=<encoded HAT-ID>`. Called with no arguments, the
+function returns the bare `COMBO_CHECKOUT_URL` byte-identically. The
+preview branch is the only current caller that passes a hat.
+
+Downstream: the combo product page (theme side) is prepared to pick up
+`preview_hat_id` and inject a hidden `_preview_hat_id` line-item
+property; a draft-safe Shopify Flow can react to that property. Neither
+theme nor live Flow is changed in this pass; the crate-side change is
+a no-op on fulfillment today and becomes useful when the theme pickup
+is live.
+
+Retained invariants: purchased finalize, saved-hat immediate-show,
+`writeSavedHatFlag` / `maybeShowSavedHatOverlay`, pending-result bridge
+(`writePendingResultServer`, `crate_pending_result:*`), purchased
+email-link route, 2-spin consume + finalize, post-claim reload,
+inventory-aware landing, reel cycle behavior, preview spin limit,
+`buildPreviewCheckoutUrl` (still dormant, unchanged).
+
+No copy on the preview overlay implies "saved", "finalized",
+"claimed", or "locked in". The overlay explicitly frames the hat as
+the one being taken into checkout, not a fulfillment commitment.
+
+---
+
 ## 2026-04-14 -- Saved-hat confirmation: immediate-show, Continue-gated reload
 
 **Type:** Timing adjustment. Smallest safe crate-repo-only move.
