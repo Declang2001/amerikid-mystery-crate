@@ -5,6 +5,36 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-15 -- Preview cart permalink payload switched to base64-encoded JSON
+
+**Type:** Preview-path checkout payload fix. `src/main.js`,
+`docs/source-of-truth.md`, `docs/runtime-test-checklist.md`,
+`docs/change-log.md`. No purchased-path change, no API change, no
+server change, no theme edit, no Shopify admin change, no Flow change,
+no audio/camera/scene change, no inventory change, no state machine
+change, no overlay flow change.
+
+Before: `buildPreviewCartPermalink` emitted
+`?properties=<URL-encoded JSON>` (shape
+`?properties=%7B%22_preview_hat_id%22%3A%22HAT-ID%22%7D`). On this
+store that payload format produced a Shopify error page after the
+size-select CTA.
+
+After: the function now emits
+`?properties=<URL-escaped base64 of {"_preview_hat_id":"HAT-ID"}>`
+(shape `?properties=eyJfcHJldmlld19oYXRfaWQiOiJIQVQtSUQifQ==` with
+any `=` escaped). Matches the manually verified working Shopify URL
+pattern: `https://amerikid.ca/cart/51878170034456:1?properties=eyJfcHJldmlld19oYXRfaWQiOiJzbW9rZS10ZXN0In0`.
+
+Implementation: body swapped from
+`encodeURIComponent(JSON.stringify(payload))` to
+`encodeURIComponent(btoa(JSON.stringify(payload)))`. Function
+signature, variant map, origin, overlay chain, and
+`redirectToCheckout` are byte-identical. `btoa` is safe because hat
+IDs are ASCII (CF-ZS-OG, CF-10..CF-16, seven ASCII custom names).
+
+---
+
 ## 2026-04-15 -- Preview direct-to-checkout two-popup flow (hat confirm + shirt size)
 
 **Type:** Preview-path redirect replacement. `src/main.js`, `src/style.css`,

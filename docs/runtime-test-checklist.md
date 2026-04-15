@@ -93,9 +93,10 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Clicking `CONTINUE` hides the confirm overlay and opens the shirt-size overlay (`#sizeSelectOverlay`)
 - [ ] Size overlay shows five options: S, M, L, XL, 2XL rendered as tactical option buttons
 - [ ] `GO TO CHECKOUT` CTA is disabled until a size is selected; selecting a size enables it and marks only that option active
-- [ ] Clicking `GO TO CHECKOUT` redirects top-frame to `https://amerikid.ca/cart/<comboVariantId>:1?properties=<URL-encoded JSON {"_preview_hat_id":"<HAT-ID>"}>`
+- [ ] Clicking `GO TO CHECKOUT` redirects top-frame to `https://amerikid.ca/cart/<comboVariantId>:1?properties=<URL-escaped base64 of {"_preview_hat_id":"<HAT-ID>"}>`
 - [ ] Variant ID in the URL matches the selected size: S=51878170034456, M=51878170067224, L=51878170099992, XL=51878170132760, 2XL=51878170165528
-- [ ] The `properties` query param decodes to JSON `{"_preview_hat_id":"<HAT-ID>"}` where `<HAT-ID>` matches the landed hat in `src/hats.js`
+- [ ] The `properties` query param base64-decodes to JSON `{"_preview_hat_id":"<HAT-ID>"}` where `<HAT-ID>` matches the landed hat in `src/hats.js`
+- [ ] Shopify does NOT return an error page after the redirect (previous URL-encoded-JSON payload produced an error on this store; base64 matches the verified working pattern)
 - [ ] Redirect uses `window.top.location.href` when embedded (iframe context) and `window.location.href` otherwise
 - [ ] Shopify destination is the direct cart permalink (not the combo product page, not the hidden mystery-hat variant permalink)
 - [ ] Cart on Shopify shows the combo variant with `_preview_hat_id` as a line-item property after the redirect lands

@@ -558,7 +558,8 @@ function buildComboCheckoutUrl(hat) {
 function buildPreviewCartPermalink(hatId, size) {
   const variantId = COMBO_VARIANT_BY_SIZE[size]
   if (!variantId || !hatId) return null
-  const properties = encodeURIComponent(JSON.stringify({ _preview_hat_id: hatId }))
+  const payload = JSON.stringify({ _preview_hat_id: hatId })
+  const properties = encodeURIComponent(btoa(payload))
   return `${COMBO_CART_ORIGIN}/cart/${variantId}:1?properties=${properties}`
 }
 
