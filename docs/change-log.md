@@ -5,6 +5,44 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-15 -- Preview direct-to-checkout two-popup flow (hat confirm + shirt size)
+
+**Type:** Preview-path redirect replacement. `src/main.js`, `src/style.css`,
+`docs/source-of-truth.md`, `docs/runtime-test-checklist.md`,
+`docs/change-log.md`. No purchased-path change, no API change, no
+server change, no theme edit, no Shopify admin change, no Flow change,
+no audio/camera/scene change, no inventory change, no state machine
+change.
+
+Before: preview "Buy Combo Pack" opened a single confirmation overlay
+that redirected to the combo product page with
+`?preview_hat_id=<HAT-ID>` appended, relying on theme-side pickup to
+convert the param into a `_preview_hat_id` line-item property at
+add-to-cart.
+
+After: preview confirmation copy tightened (`PREVIEW SELECTED` /
+`THIS IS THE HAT YOU'RE TAKING INTO CHECKOUT.` / `CONTINUE`). Continue
+now opens a second overlay (`#sizeSelectOverlay`) showing shirt size
+options S / M / L / XL / 2XL with a disabled `GO TO CHECKOUT` CTA that
+enables once a size is chosen. On CTA click the crate redirects
+directly to a Shopify cart permalink of shape
+`https://amerikid.ca/cart/<comboVariantId>:1?properties=<URL-encoded
+JSON {"_preview_hat_id":"<HAT-ID>"}>`. Combo variant IDs are mapped by
+size in a new `COMBO_VARIANT_BY_SIZE` constant (S=51878170034456,
+M=51878170067224, L=51878170099992, XL=51878170132760,
+2XL=51878170165528). The hidden mystery-hat product and exact-hat
+variant path remain unused by the preview CTA.
+
+`buildPreviewCartPermalink(hatId, size)` is the new URL builder. The
+older `buildComboCheckoutUrl(hat?)` and `buildPreviewCheckoutUrl`
+helpers are retained in code but dormant. Preview overlay still never
+sets the purchased `savedHatOverlayShown` flag, never touches
+`crate.savedHat.pending`. Purchased path, saved-hat popup, pending-
+result bridge, inventory-aware landing, audio/camera/scene, state
+machine all unchanged.
+
+---
+
 ## 2026-04-15 -- Preview-only confirmation popup + preview_hat_id URL carry
 
 **Type:** Preview-path UX + handoff precondition. Smallest safe crate-side

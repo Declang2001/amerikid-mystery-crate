@@ -87,12 +87,18 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Preview result panel copy does NOT imply the exact revealed hat is added to checkout (no "this exact hat" wording)
 - [ ] Preview result panel reads "Preview only. Buy the combo pack to unlock your real spins." with a "Preview Only" label chip
 - [ ] Clicking "Buy Combo Pack" does NOT redirect immediately; it opens the preview-only confirmation overlay after closing the crate
-- [ ] Preview overlay shows kicker `PREVIEW SELECTED` (rendered with `[ ]` brackets from CSS), the landed hat image, the landed hat name, body copy `THIS IS THE HAT YOU'RE TAKING INTO CHECKOUT. CONTINUE TO OPEN THE CANDY FACTS MYSTERY BOX COMBO.`, and CTA `CONTINUE TO COMBO PACK`
+- [ ] Preview confirm overlay shows kicker `PREVIEW SELECTED` (rendered with `[ ]` brackets from CSS), the landed hat image, the landed hat name, body copy `THIS IS THE HAT YOU'RE TAKING INTO CHECKOUT.`, and CTA `CONTINUE`
 - [ ] Preview overlay copy never reads "saved", "finalized", "claimed", or "locked in"
 - [ ] Preview overlay does NOT write `crate.savedHat.pending` sessionStorage and does NOT set the purchased single-show flag
-- [ ] Clicking `CONTINUE TO COMBO PACK` hides the overlay and redirects top-frame to `https://amerikid.ca/products/candyfacts-mystery-box-combo?preview_hat_id=<HAT-ID>` where `<HAT-ID>` matches the landed hat in `src/hats.js`
+- [ ] Clicking `CONTINUE` hides the confirm overlay and opens the shirt-size overlay (`#sizeSelectOverlay`)
+- [ ] Size overlay shows five options: S, M, L, XL, 2XL rendered as tactical option buttons
+- [ ] `GO TO CHECKOUT` CTA is disabled until a size is selected; selecting a size enables it and marks only that option active
+- [ ] Clicking `GO TO CHECKOUT` redirects top-frame to `https://amerikid.ca/cart/<comboVariantId>:1?properties=<URL-encoded JSON {"_preview_hat_id":"<HAT-ID>"}>`
+- [ ] Variant ID in the URL matches the selected size: S=51878170034456, M=51878170067224, L=51878170099992, XL=51878170132760, 2XL=51878170165528
+- [ ] The `properties` query param decodes to JSON `{"_preview_hat_id":"<HAT-ID>"}` where `<HAT-ID>` matches the landed hat in `src/hats.js`
 - [ ] Redirect uses `window.top.location.href` when embedded (iframe context) and `window.location.href` otherwise
-- [ ] Shopify destination is the combo product page, not the hidden mystery-hat variant cart permalink
+- [ ] Shopify destination is the direct cart permalink (not the combo product page, not the hidden mystery-hat variant permalink)
+- [ ] Cart on Shopify shows the combo variant with `_preview_hat_id` as a line-item property after the redirect lands
 - [ ] Preview result is NOT persisted to Shopify
 - [ ] Refreshing the page allows another preview spin (acceptable for launch)
 - [ ] Signed-in customer with `crate_hat_won` tag and 0 spins enters preview mode (not dead-end purchased path)
@@ -194,7 +200,7 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Client Credentials Grant successfully mints a token
 - [ ] Token is used for customer read/write operations
 - [ ] Customer metafield (or tag) is written with correct hat ID after finalize
-- [ ] Preview CTA redirects to the $50 combo product URL (`https://amerikid.ca/products/candyfacts-mystery-box-combo`). Exact-hat cart permalink helper (`buildPreviewCheckoutUrl`) remains in `src/main.js` but is not invoked by the preview CTA
+- [ ] Preview CTA redirects to a Shopify cart permalink (`https://amerikid.ca/cart/<comboVariantId>:1?properties=...`) for the selected combo variant with `_preview_hat_id` as a line-item property. Exact-hat cart permalink helper (`buildPreviewCheckoutUrl`) and combo-page helper (`buildComboCheckoutUrl`) remain in `src/main.js` but are not invoked by the preview CTA
 - [ ] Shopify Flow correctly adds entitlement on combo purchase (requires Shopify admin test)
 
 ---

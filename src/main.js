@@ -130,6 +130,15 @@ app.innerHTML = `
         <button id="savedHatContinueBtn" class="saved-hat-cta" type="button">Continue</button>
       </div>
     </div>
+    <div id="sizeSelectOverlay" class="size-select-overlay" aria-hidden="true">
+      <div class="size-select-card" role="dialog" aria-labelledby="sizeSelectTitle">
+        <p class="size-select-kicker">Select Shirt Size</p>
+        <h2 id="sizeSelectTitle" class="size-select-title">Choose Your Size</h2>
+        <p class="size-select-copy">Pick a shirt size to complete your combo pack.</p>
+        <div id="sizeSelectOptions" class="size-select-options" role="radiogroup" aria-label="Shirt size"></div>
+        <button id="sizeSelectCtaBtn" class="size-select-cta" type="button" disabled>GO TO CHECKOUT</button>
+      </div>
+    </div>
   </div>
 `
 
@@ -255,10 +264,71 @@ function showPreviewConfirmOverlay(hat, onContinue) {
   img.alt = displayName
   name.textContent = displayName
   if (kicker) kicker.textContent = 'PREVIEW SELECTED'
-  if (copy) copy.textContent = "THIS IS THE HAT YOU'RE TAKING INTO CHECKOUT. CONTINUE TO OPEN THE CANDY FACTS MYSTERY BOX COMBO."
-  cta.textContent = 'CONTINUE TO COMBO PACK'
+  if (copy) copy.textContent = "THIS IS THE HAT YOU'RE TAKING INTO CHECKOUT."
+  cta.textContent = 'CONTINUE'
 
   previewContinueAction = typeof onContinue === 'function' ? onContinue : null
+  overlay.classList.add('visible')
+  overlay.setAttribute('aria-hidden', 'false')
+}
+
+// Preview-route-only state: which shirt size the user has chosen in the
+// size-select overlay. Reset every time the overlay opens so stale
+// selections do not leak between preview spins (which only happens across
+// a page refresh today, but keeping this clean is cheap).
+let selectedShirtSize = null
+
+function showPreviewSizeOverlay(hat) {
+  const overlay = document.querySelector('#sizeSelectOverlay')
+  const optionsHost = document.querySelector('#sizeSelectOptions')
+  const cta = document.querySelector('#sizeSelectCtaBtn')
+  if (!overlay || !optionsHost || !cta) return
+
+  // Close the hat-confirm overlay if it is still visible underneath.
+  const confirmOverlay = document.querySelector('#savedHatOverlay')
+  if (confirmOverlay) {
+    confirmOverlay.classList.remove('visible')
+    confirmOverlay.setAttribute('aria-hidden', 'true')
+  }
+
+  selectedShirtSize = null
+  cta.disabled = true
+  cta.textContent = 'GO TO CHECKOUT'
+
+  // Rebuild the size options each open so clicks wire cleanly and no
+  // stale pressed-state remains from a prior session.
+  optionsHost.innerHTML = ''
+  COMBO_SIZES.forEach(size => {
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.className = 'size-select-option'
+    btn.textContent = size
+    btn.setAttribute('role', 'radio')
+    btn.setAttribute('aria-checked', 'false')
+    btn.dataset.size = size
+    btn.addEventListener('click', () => {
+      selectedShirtSize = size
+      optionsHost.querySelectorAll('.size-select-option').forEach(el => {
+        const isActive = el.dataset.size === size
+        el.classList.toggle('is-active', isActive)
+        el.setAttribute('aria-checked', isActive ? 'true' : 'false')
+      })
+      cta.disabled = false
+    })
+    optionsHost.appendChild(btn)
+  })
+
+  cta.onclick = () => {
+    if (!selectedShirtSize) return
+    const hatId = hat?.id
+    const url = buildPreviewCartPermalink(hatId, selectedShirtSize)
+    if (!url) return
+    cta.disabled = true
+    overlay.classList.remove('visible')
+    overlay.setAttribute('aria-hidden', 'true')
+    redirectToCheckout(url)
+  }
+
   overlay.classList.add('visible')
   overlay.setAttribute('aria-hidden', 'false')
 }
@@ -460,10 +530,36 @@ function resolvePreviewCheckoutOrigin() {
 // preserved below for possible future reuse of exact-hat preview checkout.
 const COMBO_CHECKOUT_URL = 'https://amerikid.ca/products/candyfacts-mystery-box-combo'
 
+// Direct-checkout mapping for the preview route. Each key is a shirt size
+// option shown in the preview size-select overlay; each value is the matching
+// combo product variant id supplied by Shopify admin truth. The preview
+// route builds a cart permalink against the chosen variant and carries the
+// landed hat id as the `_preview_hat_id` line-item property so the draft
+// Shopify Flow can suppress the purchased spin grant when activated.
+const COMBO_VARIANT_BY_SIZE = {
+  'S':   '51878170034456',
+  'M':   '51878170067224',
+  'L':   '51878170099992',
+  'XL':  '51878170132760',
+  '2XL': '51878170165528'
+}
+const COMBO_SIZES = ['S', 'M', 'L', 'XL', '2XL']
+const COMBO_CART_ORIGIN = 'https://amerikid.ca'
+
 function buildComboCheckoutUrl(hat) {
   const hatId = hat?.id
   if (!hatId) return COMBO_CHECKOUT_URL
   return `${COMBO_CHECKOUT_URL}?preview_hat_id=${encodeURIComponent(hatId)}`
+}
+
+// Preview-route-only. Builds the Shopify cart permalink that sends the user
+// directly into the cart/checkout with the combo variant for the chosen
+// shirt size and `_preview_hat_id` attached as a line-item property.
+function buildPreviewCartPermalink(hatId, size) {
+  const variantId = COMBO_VARIANT_BY_SIZE[size]
+  if (!variantId || !hatId) return null
+  const properties = encodeURIComponent(JSON.stringify({ _preview_hat_id: hatId }))
+  return `${COMBO_CART_ORIGIN}/cart/${variantId}:1?properties=${properties}`
 }
 
 function buildPreviewCheckoutUrl(hat) {
@@ -2206,18 +2302,18 @@ claimBtn.addEventListener('click', async () => {
   // buildPreviewCheckoutUrl is preserved above for future reuse.
   if (isPreviewMode) {
     const previewHat = spinWinnerHat
-    const comboUrl = buildComboCheckoutUrl(previewHat)
 
     cancelAutoClose()
     playSfx(claimSfx, 1)
     setState(STATES.CLAIMING)
     await closeCrate()
     setQuestionMarksVisible(true)
-    // Preview-only confirmation popup. Continue redirects to the combo
-    // product page with preview_hat_id in the URL. Popup deliberately
-    // uses preview-only copy and never marks the result as saved or
-    // finalized.
-    showPreviewConfirmOverlay(previewHat, () => redirectToCheckout(comboUrl))
+    // Preview-only two-step handoff. Popup 1 confirms the landed hat.
+    // Popup 2 collects the shirt size. The size overlay's CTA builds the
+    // Shopify cart permalink with the correct combo variant id and
+    // `_preview_hat_id` as a line-item property, then redirects directly
+    // into the cart/checkout. No combo product page hop.
+    showPreviewConfirmOverlay(previewHat, () => showPreviewSizeOverlay(previewHat))
     return
   }
 
