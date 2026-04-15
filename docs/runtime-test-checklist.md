@@ -65,8 +65,8 @@ Each item should be tested manually unless automated tests exist.
 
 - [ ] Spin audio plays during spin
 - [ ] Open SFX plays on every crate open (spin start, Spin Again re-open, Open button)
-- [ ] Close SFX plays on every crate close (Spin Again, Save Result, Buy Combo Pack, Close button)
-- [ ] Claim SFX plays on every finalize action (Save Result on purchased path, Buy Combo Pack on preview path)
+- [ ] Close SFX plays on every crate close (Spin Again, Save Result, SELECT HAT, Close button)
+- [ ] Claim SFX plays on every finalize action (Save Result on purchased path, SELECT HAT on preview path)
 - [ ] Claim SFX does not double-play on rapid clicks (state guard blocks re-entry)
 - [ ] Audio stops cleanly when spin ends (no overlap or echo)
 - [ ] **Iframe test:** "Tap to enable sound" overlay appears in iframe context
@@ -83,10 +83,11 @@ Each item should be tested manually unless automated tests exist.
 - [ ] User can enter without `customer_id` param
 - [ ] User gets 1 preview spin
 - [ ] Preview spin plays full animation and reveals a hat
-- [ ] After preview result, only "Buy Combo Pack" is visible (no Spin Again, no generic spin button)
+- [ ] After preview result, only "SELECT HAT" is visible (no Spin Again, no generic spin button)
 - [ ] Preview result panel copy does NOT imply the exact revealed hat is added to checkout (no "this exact hat" wording)
-- [ ] Preview result panel reads "Preview only. Buy the combo pack to unlock your real spins." with a "Preview Only" label chip
-- [ ] Clicking "Buy Combo Pack" does NOT redirect immediately; it opens the preview-only confirmation overlay after closing the crate
+- [ ] Preview result panel reads "Preview only. Select this hat and pick a size to take it into checkout." with a "Preview Only" label chip
+- [ ] Preview status strip reads "SELECT HAT confirms this preview pick"
+- [ ] Clicking "SELECT HAT" does NOT redirect immediately; it opens the preview-only confirmation overlay after closing the crate
 - [ ] Preview confirm overlay shows kicker `PREVIEW SELECTED` (rendered with `[ ]` brackets from CSS), the landed hat image, the landed hat name, body copy `THIS IS THE HAT YOU'RE TAKING INTO CHECKOUT.`, and CTA `CONTINUE`
 - [ ] Preview overlay copy never reads "saved", "finalized", "claimed", or "locked in"
 - [ ] Preview overlay does NOT write `crate.savedHat.pending` sessionStorage and does NOT set the purchased single-show flag
@@ -104,7 +105,7 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Refreshing the page allows another preview spin (acceptable for launch)
 - [ ] Signed-in customer with `crate_hat_won` tag and 0 spins enters preview mode (not dead-end purchased path)
 - [ ] Signed-in customer in post-purchase preview mode gets 1 non-binding preview spin
-- [ ] Signed-in customer in post-purchase preview mode sees "Buy Combo Pack" (not "Save Result")
+- [ ] Signed-in customer in post-purchase preview mode sees "SELECT HAT" (not "Save Result")
 - [ ] Post-purchase preview spin does NOT overwrite or affect the existing saved `crate_hat_won` tag
 
 ---
@@ -131,8 +132,8 @@ Each item should be tested manually unless automated tests exist.
 - [ ] After purchased `Save Result` success, the CLAIMED panel is visible briefly (~2.5s hold) before the page reloads
 - [ ] After the post-claim reload, the customer lands back on the black-screen "Click To Enter" boot flow
 - [ ] After the post-claim reload, the customer proceeds through the full intro cinematic unchanged (idle video -> walk video -> crate intro)
-- [ ] After the post-claim reload, signed-in purchased customer with spinsRemaining=0 + `crate_hat_won` tag lands in post-purchase preview mode (1 non-binding spin, "Buy Combo Pack" CTA)
-- [ ] Post-claim reload path never triggers on the preview path (`Buy Combo Pack` still uses `redirectToCheckout` and exits the app)
+- [ ] After the post-claim reload, signed-in purchased customer with spinsRemaining=0 + `crate_hat_won` tag lands in post-purchase preview mode (1 non-binding spin, "SELECT HAT" CTA)
+- [ ] Post-claim reload path never triggers on the preview path (`SELECT HAT` still uses `redirectToCheckout` and exits the app)
 - [ ] Post-claim reload fires exactly once even if the user somehow re-clicks `Save Result` during the hold (timer is guarded against overlapping schedules)
 
 ---
@@ -303,9 +304,9 @@ Each item should be tested manually unless automated tests exist.
 - [ ] `.label` chip reads gold when in claimed-result state
 - [ ] `.status-line` reads as a tactical monospace strip with amber border
 - [ ] Purchased path: `#claimBtn` ("Save Result") renders with warm amber gradient, gold text-shadow, and amber rim on hover
-- [ ] Preview path: `#claimBtn` ("Buy Combo Pack") renders with cool cyan gradient, cyan text-shadow, and cyan rim on hover
+- [ ] Preview path: `#claimBtn` ("SELECT HAT") renders with cool cyan gradient, cyan text-shadow, and cyan rim on hover
 - [ ] `.controls button` elements have beveled top-right and bottom-left corners via clip-path
-- [ ] Button text "Save Result", "Buy Combo Pack", "Spin Again", "Spin" renders as expected
+- [ ] Button text "Save Result", "SELECT HAT", "Spin Again", "Spin" renders as expected
 - [ ] Button visibility logic is unchanged (purchased / preview / has-secondary-action / claimed flows all behave identically)
 - [ ] When the panel becomes visible, `.panel-header` and `.controls` fade-up from 6px below with a subtle 120 ms / 220 ms stagger
 - [ ] The already-accepted `.result-card` winner-reveal 520 ms keyframe still plays on top of the stagger
@@ -356,7 +357,7 @@ Each item should be tested manually unless automated tests exist.
 - [ ] On a Slow 3G throttle, the reel cycle may briefly skip frames where a hat texture has not yet landed -- those frames render invisible (alphaTest cull) rather than a placeholder color, pink flash, or broken image. The reel timing is unchanged
 - [ ] When any hat eventually loads mid-spin, the next reel swap onto that index shows the correct image without a visible material remount or flicker
 - [ ] The winning hat always ends up visually correct in the result panel: even if the Three.js 3D plane was still loading during the reel, by the time WINNER_SELECTED pulses the winning hat texture is populated (or completes populating without a visible remount)
-- [ ] Preview path end-to-end: spin lands on a hat, result panel shows hat name and DOM `<img>`, Buy Combo Pack redirects to the combo product page. Unchanged
+- [ ] Preview path end-to-end: spin lands on a hat, result panel shows hat name and DOM `<img>`, SELECT HAT opens the two-popup flow and redirects to the direct cart permalink. Unchanged
 - [ ] Purchased path end-to-end: spin, Save Result writes `crate_hat_won:HAT-ID`, post-claim reload returns to intro. Unchanged
 - [ ] `markBootIdleLoadFailed` code path still kicks the hat preload as a fallback (verify by blocking `*idle.mp4` in DevTools, letting the timeout fire, then checking Network tab that hat PNG requests still began after the failure)
 - [ ] Bundle size sanity: `npm run build` reports a JS bundle growth of <1 KB gzipped compared to the prior commit

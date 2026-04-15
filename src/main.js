@@ -1712,13 +1712,13 @@ function updatePanelPresentation() {
   } else if (hasWinner && isResultState) {
     if (isPreviewMode) {
       if (currentState === STATES.CLAIMING) {
-        subtitleText = 'Opening the combo pack product page'
-        labelText = 'Combo Pack'
-        statusText = withFallbackNote('Loading the Candy Facts Mystery Box Combo')
-      } else {
-        subtitleText = 'Preview only. Buy the combo pack to unlock your real spins.'
+        subtitleText = 'Preparing your checkout'
         labelText = 'Preview Only'
-        statusText = withFallbackNote('Buy Combo Pack opens the $50 combo product page')
+        statusText = withFallbackNote('Standby for size selection')
+      } else {
+        subtitleText = 'Preview only. Select this hat and pick a size to take it into checkout.'
+        labelText = 'Preview Only'
+        statusText = withFallbackNote('SELECT HAT confirms this preview pick')
       }
     } else if (currentState === STATES.CLAIMED) {
       subtitleText = 'Your result is locked in for fulfillment'
@@ -1891,10 +1891,10 @@ function updateControls() {
 
   // --- Finalize / Forward Action Button ---
   if (isPreviewMode) {
-    // Preview: show "Buy Combo Pack" after result, hide after claimed
+    // Preview: show "SELECT HAT" after result, hide after claimed
     claimBtn.style.display = (isResultView && currentState !== STATES.CLAIMED) ? 'block' : 'none'
     claimBtn.disabled = false
-    claimBtn.textContent = 'Buy Combo Pack'
+    claimBtn.textContent = 'SELECT HAT'
   } else {
     // Purchased: show "Save Result" in finalizable states
     claimBtn.style.display = (isResultView && currentState !== STATES.CLAIMED) ? 'block' : 'none'

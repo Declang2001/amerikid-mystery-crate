@@ -5,6 +5,35 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-15 -- Preview copy pass: CTA renamed to SELECT HAT, combo-product-page wording removed
+
+**Type:** Copy-only. `src/main.js`, `docs/source-of-truth.md`,
+`docs/runtime-test-checklist.md`, `docs/change-log.md`. No behavioral
+change, no state machine change, no overlay change, no destination
+change, no audio/camera/scene change, no API/theme/admin change.
+
+Preview result CTA renamed from `Buy Combo Pack` to `SELECT HAT` to
+match the current direct-checkout two-popup flow and avoid implying
+a product-page hop. Preview result panel strings tightened:
+
+- CLAIMING subtitle `Opening the combo pack product page` ->
+  `Preparing your checkout`
+- CLAIMING label `Combo Pack` -> `Preview Only`
+- CLAIMING status `Loading the Candy Facts Mystery Box Combo` ->
+  `Standby for size selection`
+- Default preview subtitle `Preview only. Buy the combo pack to
+  unlock your real spins.` -> `Preview only. Select this hat and
+  pick a size to take it into checkout.`
+- Default preview status `Buy Combo Pack opens the $50 combo
+  product page` -> `SELECT HAT confirms this preview pick`
+
+Pre-spin Press X prompt untouched. Popup 1 and popup 2 copy
+untouched. Size overlay subcopy untouched. Purchased path copy
+untouched. Internal dev comments referencing the combo product page
+left as-is (not user-visible).
+
+---
+
 ## 2026-04-15 -- Preview cart permalink payload switched to base64-encoded JSON
 
 **Type:** Preview-path checkout payload fix. `src/main.js`,
