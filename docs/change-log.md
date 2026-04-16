@@ -5,6 +5,30 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-15 -- Combo product image in size-select popup
+
+**Type:** UI polish. `src/main.js`, `src/style.css`,
+`docs/source-of-truth.md`, `docs/runtime-test-checklist.md`,
+`docs/change-log.md`. No behavioral change, no preview flow change,
+no `_preview_hat_id` change, no shirt size selection change, no
+`GO TO CHECKOUT` redirect change, no purchased change, no
+audio/camera/scene change, no state machine change.
+
+Added a static `<img>` of the CandyFACTS combo product from the
+Shopify CDN (`https://cdn.shopify.com/s/files/1/0930/3267/7656/files/CandyFACTS_Combo.png?v=1775533470`)
+inside the `#sizeSelectOverlay` card, placed between the subcopy
+block and the size options host. Image uses `loading="lazy"` and
+`decoding="async"` so it never competes with first-paint. New
+`.size-select-product` / `.size-select-product-img` CSS centers the
+image, caps it at 180px (140px on mobile <=820px viewport), applies
+a subtle drop-shadow to match the tactical HUD language, and scales
+cleanly between desktop and mobile iframe contexts. `#sizeSelectOptions`
+rebuild inside `showPreviewSizeOverlay()` only replaces the options
+host innerHTML, so the static image element survives every overlay
+open and never flickers.
+
+---
+
 ## 2026-04-15 -- UI button click SFX
 
 **Type:** Small UX polish. `src/main.js`, `public/sfx/click.mp3`

@@ -135,6 +135,15 @@ app.innerHTML = `
         <p class="size-select-kicker">Select Shirt Size</p>
         <h2 id="sizeSelectTitle" class="size-select-title">Choose Your Size</h2>
         <p class="size-select-copy">Pick a shirt size to complete your combo pack.</p>
+        <div class="size-select-product">
+          <img
+            class="size-select-product-img"
+            src="https://cdn.shopify.com/s/files/1/0930/3267/7656/files/CandyFACTS_Combo.png?v=1775533470"
+            alt="Candy Facts Mystery Box Combo"
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
         <div id="sizeSelectOptions" class="size-select-options" role="radiogroup" aria-label="Shirt size"></div>
         <button id="sizeSelectCtaBtn" class="size-select-cta" type="button" disabled>GO TO CHECKOUT</button>
       </div>

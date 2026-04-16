@@ -96,6 +96,10 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Preview overlay copy never reads "saved", "finalized", "claimed", or "locked in"
 - [ ] Preview overlay does NOT write `crate.savedHat.pending` sessionStorage and does NOT set the purchased single-show flag
 - [ ] Clicking `CONTINUE` hides the confirm overlay and opens the shirt-size overlay (`#sizeSelectOverlay`)
+- [ ] Size overlay shows the CandyFACTS combo product image (Shopify CDN `CandyFACTS_Combo.png`) centered between the subcopy and the size options
+- [ ] Combo image is lazy-loaded (does not block popup open) and does not cause layout shift when it resolves
+- [ ] Combo image is capped at ~180px on desktop and ~140px on mobile (<=820px iframe viewport); does not overflow the card; drop-shadow is subtle and matches HUD language
+- [ ] Combo image survives repeated overlay opens without a flicker (inner `#sizeSelectOptions` rebuild does not touch the image element)
 - [ ] Size overlay shows five options: S, M, L, XL, 2XL rendered as tactical option buttons
 - [ ] `GO TO CHECKOUT` CTA is disabled until a size is selected; selecting a size enables it and marks only that option active
 - [ ] Clicking `GO TO CHECKOUT` redirects top-frame to `https://amerikid.ca/cart/<comboVariantId>:1?properties=<URL-escaped base64 of {"_preview_hat_id":"<HAT-ID>"}>`
