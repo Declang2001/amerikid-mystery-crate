@@ -5,6 +5,23 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-15 -- GPU texture pre-upload for hat reel
+
+**Type:** Performance-only. `src/main.js`, `docs/source-of-truth.md`,
+`docs/runtime-test-checklist.md`, `docs/change-log.md`. No behavioral
+change, no spin timing change, no state machine change, no audio
+change, no camera/scene change, no preview/purchased flow change.
+
+Added `renderer.initTexture(placeholder)` inside the hat-image
+`onload` callback in `kickHatTexturePreload()`. Each hat texture is
+now uploaded to GPU memory once immediately after the deferred image
+load completes, so the spin reel no longer triggers a lazy GPU upload
+on every `showHat()` swap. The call is wrapped in `try/catch` to
+stay non-fatal on environments where `initTexture` is unsupported.
+No change to fetch priority, load order, or error handling.
+
+---
+
 ## 2026-04-15 -- Preview copy pass: CTA renamed to SELECT HAT, combo-product-page wording removed
 
 **Type:** Copy-only. `src/main.js`, `docs/source-of-truth.md`,

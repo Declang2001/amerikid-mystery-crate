@@ -1464,6 +1464,7 @@ function kickHatTexturePreload() {
     img.onload = () => {
       placeholder.image = img
       placeholder.needsUpdate = true
+      try { renderer.initTexture(placeholder) } catch (_) {}
     }
     img.onerror = () => {
       // Non-fatal: the placeholder stays empty and the alphaTest cull
