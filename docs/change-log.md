@@ -5,6 +5,117 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-15 -- Iframe UI polish corrective pass (revert Press X to blue circle, remove purple stripe, retone amber/gold to official #ff33ff)
+
+**Type:** CSS-only revert + retone on `src/style.css`,
+`docs/source-of-truth.md`, `docs/change-log.md`,
+`docs/runtime-test-checklist.md`. No DOM change, no JS change,
+no behavioral change, no state-machine change, no event-handler
+change, no positioning-math change, no audio change, no camera/
+scene change, no preview/purchased flow change, no API change,
+no theme change.
+
+**Why.** The prior polish pass introduced three visual choices
+the user does not want: (1) a tactical amber beveled keycap
+replacing the original blue controller-circle X button, (2) a
+subtle left-edge purple inset stripe on card surfaces, (3) an
+amber/gold UI chrome tone that read as gold casino rather than
+the official site magenta. User reaction was explicit: restore
+the blue X button, delete the purple stripe entirely, retone
+every 2D UI chrome surface to the official `#ff33ff` magenta,
+and keep what was good (click SFX, compact size-select popup,
+combo product image, button press feel where still compatible).
+
+**1. Press X blue circle restored.** `.press-x-key` reverted to
+the original inline-style blue circle: `display: inline-block`,
+`width: 24px`, `height: 24px`, `margin: 0 4px`, `background: #4a90e2`,
+`border-radius: 50%`, `color: white`, `text-align: center`,
+`line-height: 24px`, `font-weight: bold`, `letter-spacing: 0`. Hover
+/ focus-visible lighten to `#5ea0ee` with `0 0 14px rgba(74,144,226,0.55)`
+glow; `:active` darkens to `#3d7fcf` and drops `translateY(1px)`.
+Amber clip-path polygon, amber border/box-shadow stack, and amber
+text-shadow all removed from the keycap. Outer `.press-x-prompt`
+typography (Black Ops One 0.92rem / 0.82rem mobile, 0.18em tracking,
+uppercase) left in place -- this is the authored surrounding-text
+styling the user said was good. DOM structure (`.press-x-prompt`
+with three children `.press-x-label` / `.press-x-key` / `.press-x-label`)
+unchanged. `src/main.js` markup injection, event handlers, world-to-
+screen positioning math, and `display: block`/`none` inline toggle
+were NOT touched.
+
+**2. Purple side stripe removed entirely.** `--brand-purple`
+custom property deleted from the tactical `:root` block in
+`src/style.css`. The additive polish-pass cascade block that
+prepended `inset 2px 0 0 var(--brand-purple),` onto six elements
+(`.boot-copy`, `.boot-idle-copy`, `.panel`, `.result-card`,
+`.saved-hat-card`, `.size-select-card`) was removed wholesale.
+Because that block was purely additive on top of pre-polish base
+rules defined earlier in the file, removing it fully restores the
+original `box-shadow` values for all six surfaces; no manual
+restoration edits were needed.
+
+**3. 2D UI chrome retoned gold/amber to official `#ff33ff`.**
+Root variables swapped in place so every consumer of
+`var(--hud-amber)` / `var(--hud-amber-soft)` / `var(--hud-gold)`
+/ `var(--hud-scanline)` inherits magenta automatically without
+touching the call sites: `--hud-amber: #ffd16a -> #ff33ff`,
+`--hud-amber-soft: rgba(255,209,106,0.62) -> rgba(255,51,255,0.62)`,
+`--hud-gold: #ffc855 -> #ff66ff`,
+`--hud-scanline: rgba(255,209,106,0.042) -> rgba(255,51,255,0.042)`.
+All amber RGBA literals across the file were then `replace_all`d
+to their magenta equivalents (preserving alpha values so opacity-
+tuned highlights / bevels / glows keep the exact same intensity):
+main amber `rgba(255,209,106,X)` / `rgba(255,200,85,X)` /
+`rgba(255,210,110,X)` / `rgba(255,214,118,X)` -> `rgba(255,51,255,X)`;
+light highlights `rgba(255,232,172,X)` / `rgba(255,232,170,X)` /
+`rgba(255,231,184,X)` / `rgba(255,226,160,X)` / `rgba(255,222,152,X)` /
+`rgba(255,220,160,X)` / `rgba(255,220,150,X)` -> `rgba(255,102,255,X)`;
+paler highlights `rgba(255,240,190,X)` / `rgba(255,233,190,X)` ->
+`rgba(255,153,255,X)`; very pale `rgba(255,249,229,X)` /
+`rgba(255,245,216,X)` -> `rgba(255,220,255,X)`; dark amber CTA
+backgrounds `rgba(60,44,14,X)` / `rgba(28,20,8,X)` -> dark plum
+`rgba(56,16,72,X)` / `rgba(28,8,36,X)`. Hex swaps: `#ffd16a -> #ff33ff`,
+`#f5a524 -> #b520b5`, `#ffc855 -> #ff66ff`, `#ffe4a0 -> #ff99ff`,
+`#ffe7a4 -> #ff99ff`, `#fff5d6 -> #ffe6ff`, `#ffeab8 -> #ffccff`.
+
+**Preview cyan untouched.** The cyan semantic (`rgba(140,230,255,X)`,
+`var(--hud-cyan)`, `#8ce6ff`) was not touched anywhere; preview-path
+framing, cyan kicker, preview eligibility chip, preview caret,
+preview media ticks, preview `#claimBtn` depress ring, and the
+`0 0 0 1px rgba(140,230,255,0.08) inset` accents on card chrome all
+continue to render cyan.
+
+**Winner-reveal state distinction.** The winner-reveal 42% keyframe
+continues to hold its reveal moment via the `hud-frame-pulse 2.4s`
+0.78-to-1.0 opacity animation, which now animates magenta chrome
+instead of amber chrome. The reveal still punches visibly on top
+of the default magenta HUD tone without needing a separate hue.
+
+**Retained polish-pass wins.** All click SFX wiring from the prior
+pass (`clickSfx` at `/sfx/click.mp3`, volume 0.12, preload auto,
+registered in `allAudioElements`, wired into `#bootStartBtn` /
+`#bootEnterPortalBtn` / `#savedHatContinueBtn` / `.size-select-option` /
+`#sizeSelectCtaBtn` / `#spinBtn`; Press X / canvas / keyboard X /
+`#claimBtn` still deliberately excluded) is preserved. The
+compacted size-select popup (grid of 5 sizes, reduced padding,
+capped product image) is preserved. Combo product image in the
+size-select overlay is preserved. Button press-down depress
+feedback is preserved, just retoned to magenta rings. `.eligibility-status`
+telemetry chip and `.status-line` blinking caret are preserved,
+retoned to magenta. Result-media aperture L-ticks preserved,
+retoned to magenta (with preview cyan and claimed/winner magenta
+state cascades still functional).
+
+**Verification.** `npm run build` green (`dist/assets/index-*.css`
+29.27 kB, `dist/assets/index-*.js` 662.92 kB, 907ms). No unused
+CSS custom properties remain (`--brand-purple` removed,
+`--hud-gold` still referenced implicitly via variable definition
+though unused at call sites kept in place for stability). No
+`var(--brand-purple)` refs remain. No amber RGBA literals remain
+in `src/style.css` outside of purely white-on-white RGBA patterns.
+
+---
+
 ## 2026-04-15 -- Iframe UI polish pass (Press X keycap, telemetry chip, caret, media ticks, brand stripe, press depress)
 
 **Type:** CSS-first visual polish with one narrow markup swap on the

@@ -450,6 +450,60 @@ Each item should be tested manually unless automated tests exist.
 
 ---
 
+## 18. Iframe UI polish corrective pass (2026-04-15): revert keycap, remove stripe, retone to #ff33ff
+
+### Press X blue circle restored
+- [ ] Press X prompt renders with the original blue controller-circle `X` (not the tactical amber beveled keycap)
+- [ ] Keycap is a circle (`border-radius: 50%`), 24x24, `#4a90e2` background, white bold `X`
+- [ ] No clip-path polygon bevel on the keycap, no amber border, no amber inner-highlight / underline, no amber text-shadow
+- [ ] Hover / focus-visible: keycap lightens to `#5ea0ee` with soft blue glow, no amber
+- [ ] `:active` / press: keycap darkens to `#3d7fcf` and drops 1px translate, no amber
+- [ ] Outer "Press" and "For a Random Hat" text still renders in Black Ops One 0.92rem / 0.82rem mobile, 0.18em tracking, uppercase (authored text styling kept)
+- [ ] Keyboard X, click on prompt, and canvas tap all still trigger spin
+- [ ] Prompt still positioned on the crate front face via world-to-screen projection
+- [ ] Prompt hidden during OPENING / SPINNING / WINNER_SELECTED / CLAIMING / CLOSING / CLAIMED
+
+### Purple side stripe removed
+- [ ] `.boot-copy`, `.boot-idle-copy`, `.panel`, `.result-card`, `.saved-hat-card`, `.size-select-card` no longer render a left-edge purple inset stripe
+- [ ] All six surfaces fall back to their pre-polish original box-shadow (drop shadow + inner top highlight + subtle outer halo)
+- [ ] `--brand-purple` custom property no longer defined in the stylesheet (grep returns zero matches)
+- [ ] No `var(--brand-purple)` references remain in the stylesheet (grep returns zero matches)
+
+### 2D UI chrome retoned to official site purple (#ff33ff)
+- [ ] Popup cards (boot, saved-hat, size-select) render magenta HUD corner brackets and scanlines, not gold/amber
+- [ ] Result card chrome renders magenta, not gold
+- [ ] Panel accents render magenta, not amber
+- [ ] Button chrome (`#claimBtn`, `.boot-cta`, `.saved-hat-cta`, `.size-select-cta`, `.size-select-option`) renders magenta gradient / border / glow, not amber
+- [ ] `#claimBtn` dark background reads as dark plum (`rgba(56,16,72,X)` / `rgba(28,8,36,X)`), not dark amber
+- [ ] `.eligibility-status` telemetry chip border renders magenta, `>> ` prefix renders magenta, not amber
+- [ ] `.status-line` blinking terminal caret `_` renders magenta, not amber
+- [ ] `.result-media::after` aperture L-ticks render magenta default, preserve cyan for preview-result state, preserve magenta (brighter) for claimed-result / winner-reveal states
+- [ ] Button press-down depress rings render magenta (`.controls button`, `#claimBtn`), not amber
+- [ ] `.boot-cta:active` inset underline renders magenta, not amber
+- [ ] Winner-reveal still visibly "pops" via the `hud-frame-pulse` 2.4s 0.78-to-1.0 opacity animation on the magenta chrome (state distinction preserved without a separate hue)
+
+### Preview cyan untouched
+- [ ] Preview-result state (`.panel.preview-result`) still renders cyan kicker, cyan frame, cyan telemetry chip `>> `, cyan caret, cyan media L-ticks
+- [ ] Preview `#claimBtn:active` depress ring still renders cyan
+- [ ] `.result-card` / `.saved-hat-card` / `.size-select-card` still show the `rgba(140,230,255,0.08)` cyan accent inset where previously authored
+- [ ] No cyan surface turned magenta
+
+### Retained from prior polish pass
+- [ ] Click SFX still plays on `#bootStartBtn` / `#bootEnterPortalBtn` / `#savedHatContinueBtn` / `.size-select-option` / `#sizeSelectCtaBtn` / `#spinBtn`
+- [ ] Press X prompt, canvas click, keyboard X, `#claimBtn` still deliberately do NOT play `clickSfx` (`#claimBtn` plays `claimSfx`)
+- [ ] Compact size-select popup (5-column grid desktop, capped product image, reduced padding) still renders
+- [ ] Combo product image still renders in the size-select overlay
+- [ ] Button press-down depress feedback still fires on active state (now in magenta)
+
+### Cohesion + performance
+- [ ] Built CSS size roughly unchanged from prior pass (still ~29-30KB gzipped ~6KB)
+- [ ] No new keyframes introduced in this corrective pass
+- [ ] No behavior drift: preview path, purchased path, pending-result bridge, `_preview_hat_id`, size selection, checkout redirect, saved-result flow, spin logic, state machine, audio unlock, camera/scene all visibly identical
+- [ ] Iframe context: all of the above holds inside the Shopify theme iframe embed
+- [ ] No `color-profile` clash between magenta chrome and preview cyan inside the same panel (they coexist cleanly)
+
+---
+
 ## Notes
 
 - Items marked with **Iframe test** or **iOS Safari test** require testing in the actual
