@@ -381,6 +381,75 @@ Each item should be tested manually unless automated tests exist.
 
 ---
 
+## 17. Iframe UI polish pass (Press X keycap, telemetry, caret, media ticks, depress, brand stripe)
+
+### Press X prompt
+- [ ] Prompt element is `<div class="press-x-prompt" role="button" aria-label="Press X to spin for a random hat">` with three child spans: `.press-x-label` ("Press"), `.press-x-key` ("X"), `.press-x-label` ("For a Random Hat")
+- [ ] Prompt renders in Black Ops One, uppercase, 0.18em tracking on desktop and 0.14em on mobile (<=820px)
+- [ ] The `X` keycap has a tactical bevel (clip-path polygon), amber border, inner amber underline, subtle drop shadow, and an amber text-shadow on the letter itself
+- [ ] Prompt has no blue circle, no `background: #4a90e2`, no Impact font, no `border-radius: 50%` anywhere in its DOM or CSS
+- [ ] Prompt positioning remains anchored to the crate front face at 38% height, pushed 0.35 units toward camera (unchanged math)
+- [ ] Prompt visibility still only appears in `CRATE_VIEW + READY + playerInRange` (toggled by runtime via inline `style.display = 'block'`/`'none'`)
+- [ ] Pressing X / clicking prompt / tapping canvas still triggers spin (handlers unchanged)
+- [ ] Hover / focus brightens the keycap amber; `:active` depresses it 1px with an inset compressed shadow
+- [ ] No layout shift when the prompt shows or hides
+
+### Winner-reveal retone
+- [ ] On winner land, the result-card 520ms reveal shows an amber-gold mid-frame (`rgba(255, 210, 110, 0.38)` border, `rgba(255, 180, 60, 0.2)` glow) and does NOT show a pink/magenta flash
+- [ ] The retoned mid-frame agrees with the gold HUD frame pulse that follows it (no color-language clash at the 2.4s pulse handoff)
+- [ ] Winner-reveal keyframe timing (520ms, cubic-bezier 0.16/1/0.3/1) is visibly identical
+- [ ] Spin cadence, audio, state machine transitions are visibly identical
+
+### Eligibility telemetry chip
+- [ ] `#eligibilityStatus` renders as a tactical chip: ~0.62rem monospace, uppercase, 0.12em tracking, amber border, translucent dark background, 3px/10px padding
+- [ ] When populated, the chip shows `>>` as a leading glyph in amber (rendered via `:not(:empty)::before`)
+- [ ] When empty (no content), no border, no prefix (`:not(:empty)` guard keeps it invisible)
+- [ ] `.panel.preview-result` flips the border + `>>` prefix color to cyan
+- [ ] `.panel.claimed-result` flips the border + `>>` prefix color to gold (`#ffe7a4`)
+- [ ] Chip does not break panel layout on desktop or mobile iframe
+
+### Status-line caret
+- [ ] `#resultStatus` shows a blinking `_` caret after the status text, rendered via `:not(:empty)::after`
+- [ ] Caret uses `status-caret-blink` 1.1s keyframes with `steps(2, jump-none)` (pure opacity animation, no layout shift)
+- [ ] Caret is amber by default, cyan under `.panel.preview-result`, gold under `.panel.claimed-result`
+- [ ] Caret is hidden when the status-line is empty (nothing blinking at boot / before first spin)
+- [ ] Caret does not cause layout shift on status text changes
+
+### Result-media aperture ticks
+- [ ] The result-media frame shows 4 small L-shaped corner ticks (8px arms x 1.2px stroke on desktop, 6px x 1px on mobile <=820px)
+- [ ] Ticks are inset 3px from each corner (2px on mobile) and do not clip the hat image
+- [ ] Ticks are amber by default, cyan under `.panel.preview-result`, gold under `.panel.claimed-result` and `.panel.winner-reveal`
+- [ ] Ticks do not overlay the hat image meaningfully (they sit only at the corners)
+- [ ] Ticks remain visible on all hat images (transparent-background PNGs do not obscure ticks)
+- [ ] Mobile iframe: ticks still render cleanly inside the 44px media frame without overlap
+
+### Button press-down depress
+- [ ] Clicking `#spinBtn`, `#claimBtn`, `#closeBtn`, `#openBtn` shows a depress effect: `translateY(0)` (reverses hover lift) plus an inset compressed shadow
+- [ ] `#claimBtn` depress shows amber-gold inset under purchased state, cyan inset under `.panel.preview-result`
+- [ ] `#bootStartBtn` / `#bootEnterPortalBtn` (`.boot-cta`) depress shows amber inset shadow
+- [ ] `#savedHatContinueBtn` (`.saved-hat-cta`) and `#sizeSelectCtaBtn` (`.size-select-cta`) depress with translateY(1px) + brightness(0.94)
+- [ ] `.size-select-option` buttons depress with translateY(1px) + brightness(0.96)
+- [ ] No button logic or handler changes; hover lift still renders as before
+- [ ] Press depress does not cause text clipping inside the button clip-path bevels
+
+### Amerikid purple brand stripe
+- [ ] `.boot-copy`, `.boot-idle-copy`, `.panel`, `.result-card`, `.saved-hat-card`, `.size-select-card` each show a 2px-wide purple stripe at the left inner edge (rendered via `inset 2px 0 0 var(--brand-purple)` prepended to the existing `box-shadow` stack)
+- [ ] Purple color reads as `rgba(140, 96, 255, 0.44)` (soft Amerikid purple, not magenta, not pink)
+- [ ] Stripe is state-agnostic: stays purple on default, preview, purchased, claimed, and winner-reveal states
+- [ ] Stripe does NOT replace or hijack any existing amber/cyan/gold state semantics (label chip, HUD frame brackets, result-media ticks, panel frame pulse all unchanged)
+- [ ] Stripe is subtle: does not compete with the HUD corner brackets or the `#claimBtn` prestige gradient
+- [ ] Stripe renders inside the existing 4px card border-radius without visible gap
+- [ ] Mobile iframe: stripe still readable inside the compacted panel/card widths
+
+### Cohesion + performance
+- [ ] No backdrop-filter surfaces added (heavy compositing budget unchanged)
+- [ ] New keyframes (`status-caret-blink`) animate opacity only (GPU accelerated)
+- [ ] Built CSS size grew from ~25KB to ~30KB (gzipped ~6KB); JS bundle size unchanged
+- [ ] No behavior drift: preview path, purchased path, pending-result bridge, `_preview_hat_id`, size selection, checkout redirect, saved-result flow, spin logic, state machine, audio unlock, camera/scene all visibly identical
+- [ ] Iframe context: all of the above holds inside the Shopify theme iframe embed
+
+---
+
 ## Notes
 
 - Items marked with **Iframe test** or **iOS Safari test** require testing in the actual

@@ -5,6 +5,79 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-15 -- Iframe UI polish pass (Press X keycap, telemetry chip, caret, media ticks, brand stripe, press depress)
+
+**Type:** CSS-first visual polish with one narrow markup swap on the
+Press X prompt. `src/main.js`, `src/style.css`, `docs/source-of-truth.md`,
+`docs/runtime-test-checklist.md`, `docs/change-log.md`. No behavioral
+change, no state-machine change, no event-handler change, no positioning
+math change, no audio change, no camera/scene change, no preview/
+purchased flow change, no API change, no theme change.
+
+**Press X prompt restyle.** Replaced the inline blue-circle placeholder
+markup + inline `cssText` in `src/main.js` with `<span class="press-x-label">Press</span><span class="press-x-key" aria-hidden="true">X</span><span class="press-x-label">For a Random Hat</span>`
+and added `className = 'press-x-prompt'` plus role/aria-label. All
+styling moved to `.press-x-prompt` / `.press-x-label` / `.press-x-key`
+in CSS: Black Ops One, 0.92rem desktop / 0.82rem mobile, 0.18em tracking,
+tactical keycap on the X (clip-path polygon bevel, amber border, inner
+highlight + amber underline, drop-shadow). Hover + focus-visible
+brighten the keycap amber; `:active` depresses. Event handlers,
+positioning math, and `display: block`/`none` inline toggle from the
+render loop all preserved byte-identical.
+
+**Winner-reveal keyframe retone.** `.result-card` `.winner-reveal`
+42% frame swapped from pink (border `rgba(255, 128, 224, 0.34)`,
+shadow `rgba(255, 64, 180, 0.18)` + `rgba(255, 210, 245, 0.12)`) to
+amber-gold (`rgba(255, 210, 110, 0.38)` border, `rgba(255, 180, 60, 0.2)`
+shadow, `rgba(255, 232, 172, 0.14)` ring). No timing change. Removes
+the legacy color-language clash with the gold HUD frame pulse.
+
+**Eligibility telemetry chip.** `.eligibility-status` upgraded from
+`font-size: 10px; opacity: 0.6` footnote to a tactical readout:
+0.62rem, ui-monospace stack, 0.12em tracking, 3px/10px padding,
+amber border, translucent dark background, uppercase, opacity 1.
+Added `:not(:empty)::before { content: ">> " }` tactical prefix,
+with `.panel.preview-result` switching border + prefix to cyan and
+`.panel.claimed-result` switching to gold.
+
+**Status-line caret.** New `.status-line:not(:empty)::after { content: "_" }`
+with `status-caret-blink` 1.1s `steps(2, jump-none)` opacity animation
+(GPU-only). State cascade: amber default, cyan on preview, gold on
+claimed. Caret hidden when the status text is empty so nothing blinks
+during boot.
+
+**Result-media aperture ticks.** New `.result-media::after` renders
+4 L-shaped corner ticks via an 8-layer `linear-gradient` background
+stack (8px arms x 1.2px stroke desktop, 6px x 1px on mobile <=820px),
+insetted 3px from each corner. `--media-tick` custom property drives
+color; state cascade: amber default, cyan preview, gold claimed/
+winner-reveal. No layout change.
+
+**Button press depress.** Added `:active:not(:disabled)` rules:
+global `button` resets `translateY(0)` with inset-compressed shadow;
+`.controls button` keeps the amber underline; `#claimBtn` deepens the
+amber-gold inset (cyan variant on preview via `.panel.preview-result`);
+`.boot-cta` depresses amber; `.saved-hat-cta`, `.size-select-cta`,
+and `.size-select-option` get a 1px translate + brightness 0.94.
+No logic change.
+
+**Amerikid purple brand stripe.** New `--brand-purple: rgba(140, 96, 255, 0.44)`
+defined in the tactical `:root` block. Applied as `inset 2px 0 0 var(--brand-purple)`
+prepended to the existing `box-shadow` stack on `.boot-copy`,
+`.boot-idle-copy`, `.panel`, `.result-card`, `.saved-hat-card`,
+`.size-select-card`. State-agnostic (not affected by preview/purchased/
+claimed classes), reads as quiet Amerikid DNA without hijacking the
+amber/cyan/gold state semantics. Subtle enough to sit under the HUD
+corner brackets without visual competition.
+
+**Performance.** CSS-only additions except one 6-line DOM swap in
+`src/main.js`. No new backdrop-filter surfaces. New keyframes animate
+opacity only. 8-layer `::after` on `.result-media` reuses the same
+technique already used by the HUD frame. Built CSS grew from ~25KB
+to ~30KB (gzipped 6.16KB). No bundle growth on the JS side.
+
+---
+
 ## 2026-04-15 -- Size-select popup compaction + click SFX refinement
 
 **Type:** UI polish + SFX refinement. `src/main.js`, `src/style.css`,

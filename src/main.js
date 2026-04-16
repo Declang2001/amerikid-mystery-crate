@@ -679,23 +679,10 @@ openBtn.style.display = 'none'
 closeBtn.style.display = ''
 
 const pressXPrompt = document.createElement('div')
-pressXPrompt.innerHTML = `Press <span style="display: inline-block; width: 24px; height: 24px; background: #4a90e2; border-radius: 50%; color: white; text-align: center; line-height: 24px; font-weight: bold; margin: 0 4px;">X</span> for a Random Hat`
-pressXPrompt.style.cssText = `
-  position: fixed;
-  transform: translate(-50%, -50%);
-  font-size: 20px;
-  font-weight: bold;
-  color: white;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
-  pointer-events: auto;
-  cursor: pointer;
-  z-index: 100;
-  display: none;
-  text-transform: uppercase;
-  font-family: Impact, Haettenschweiler, 'Arial Black', sans-serif;
-  letter-spacing: 1px;
-  white-space: nowrap;
-`
+pressXPrompt.className = 'press-x-prompt'
+pressXPrompt.setAttribute('role', 'button')
+pressXPrompt.setAttribute('aria-label', 'Press X to spin for a random hat')
+pressXPrompt.innerHTML = '<span class="press-x-label">Press</span><span class="press-x-key" aria-hidden="true">X</span><span class="press-x-label">For a Random Hat</span>'
 document.body.appendChild(pressXPrompt)
 
 pressXPrompt.addEventListener('click', () => {
