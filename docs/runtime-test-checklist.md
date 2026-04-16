@@ -75,9 +75,10 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Ambient background loop starts when idle video begins and plays continuously through all phases
 - [ ] Ambient is clearly softer than spin audio and SFX
 - [ ] Ambient volume drops when the crate scene takes over from the portal videos
-- [ ] Click SFX plays on explicit UI button taps: Click To Enter, Enter Portal, Continue (saved-hat and preview confirm), size option buttons (S/M/L/XL/2XL), GO TO CHECKOUT, Spin / Spin Again, Save Result / SELECT HAT
-- [ ] Click SFX does NOT play on Press X prompt, canvas click, or keyboard X press
-- [ ] Click SFX sits subtly under the larger open/close/claim SFX and does not overlap or muddy them
+- [ ] Click SFX plays on explicit UI button taps: Click To Enter, Enter Portal, Continue (saved-hat and preview confirm), size option buttons (S/M/L/XL/2XL), GO TO CHECKOUT, Spin / Spin Again
+- [ ] Click SFX does NOT play on Press X prompt, canvas click, keyboard X press, or Save Result / SELECT HAT (claim SFX already covers those)
+- [ ] Click SFX volume sits well under open/close/claim SFX (plays at 0.12) so it registers as a subtle tap rather than a loud pop
+- [ ] First click SFX plays immediately on the first button tap of a session (no perceptible decode lag; `clickSfx.preload='auto'`)
 - [ ] Click SFX respects the existing audio unlock flow (no playback before first user gesture; unlocks alongside other SFX)
 
 ---
@@ -98,9 +99,12 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Clicking `CONTINUE` hides the confirm overlay and opens the shirt-size overlay (`#sizeSelectOverlay`)
 - [ ] Size overlay shows the CandyFACTS combo product image (Shopify CDN `CandyFACTS_Combo.png`) centered between the subcopy and the size options
 - [ ] Combo image is lazy-loaded (does not block popup open) and does not cause layout shift when it resolves
-- [ ] Combo image is capped at ~180px on desktop and ~140px on mobile (<=820px iframe viewport); does not overflow the card; drop-shadow is subtle and matches HUD language
+- [ ] Combo image is capped at ~120px on desktop and ~96px on mobile (<=820px iframe viewport); does not overflow the card; drop-shadow is subtle and matches HUD language
 - [ ] Combo image survives repeated overlay opens without a flicker (inner `#sizeSelectOptions` rebuild does not touch the image element)
 - [ ] Size overlay shows five options: S, M, L, XL, 2XL rendered as tactical option buttons
+- [ ] On desktop, the five size buttons render on a single row (CSS grid `repeat(5, minmax(0, 1fr))`) without wrapping or overflow
+- [ ] On mobile (<=820px viewport), the size buttons render on two rows at most (CSS grid `repeat(3, minmax(0, 1fr))`)
+- [ ] The size-select card fits inside short mobile iframe viewports without vertical scroll (compacted padding, gap, and image size)
 - [ ] `GO TO CHECKOUT` CTA is disabled until a size is selected; selecting a size enables it and marks only that option active
 - [ ] Clicking `GO TO CHECKOUT` redirects top-frame to `https://amerikid.ca/cart/<comboVariantId>:1?properties=<URL-escaped base64 of {"_preview_hat_id":"<HAT-ID>"}>`
 - [ ] Variant ID in the URL matches the selected size: S=51878170034456, M=51878170067224, L=51878170099992, XL=51878170132760, 2XL=51878170165528

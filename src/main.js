@@ -316,7 +316,7 @@ function showPreviewSizeOverlay(hat) {
     btn.setAttribute('aria-checked', 'false')
     btn.dataset.size = size
     btn.addEventListener('click', () => {
-      playSfx(clickSfx, 0.3)
+      playSfx(clickSfx, 0.12)
       selectedShirtSize = size
       optionsHost.querySelectorAll('.size-select-option').forEach(el => {
         const isActive = el.dataset.size === size
@@ -330,7 +330,7 @@ function showPreviewSizeOverlay(hat) {
 
   cta.onclick = () => {
     if (!selectedShirtSize) return
-    playSfx(clickSfx, 0.3)
+    playSfx(clickSfx, 0.12)
     const hatId = hat?.id
     const url = buildPreviewCartPermalink(hatId, selectedShirtSize)
     if (!url) return
@@ -659,7 +659,7 @@ const savedHatOverlayEl = document.querySelector('#savedHatOverlay')
 const savedHatContinueBtn = document.querySelector('#savedHatContinueBtn')
 if (savedHatContinueBtn && savedHatOverlayEl) {
   savedHatContinueBtn.addEventListener('click', () => {
-    playSfx(clickSfx, 0.3)
+    playSfx(clickSfx, 0.12)
     savedHatOverlayEl.classList.remove('visible')
     savedHatOverlayEl.setAttribute('aria-hidden', 'true')
     // Preview path: run the stashed continuation (redirect) instead of
@@ -755,6 +755,7 @@ const openSfx = new Audio('/sfx/open.mp3')
 const closeSfx = new Audio('/sfx/close.mp3')
 const claimSfx = new Audio('/sfx/claim.mp3')
 const clickSfx = new Audio('/sfx/click.mp3')
+clickSfx.preload = 'auto'
 
 // Ambient background loop (plays continuously once started)
 const ambientAudio = new Audio('/audio/ambient.mp3')
@@ -1302,7 +1303,7 @@ bootWalkVideo?.addEventListener('timeupdate', handleWalkVideoTimeUpdate)
 
 bootStartBtn?.addEventListener('click', (event) => {
   event.stopPropagation()
-  playSfx(clickSfx, 0.3)
+  playSfx(clickSfx, 0.12)
   // Retry path: user taps the CTA after an idle-load failure. Reset the
   // failed flag and re-kick the load instead of trying to play.
   if (bootIdleLoadFailed && !bootMediaReady.idle) {
@@ -1315,7 +1316,7 @@ bootStartBtn?.addEventListener('click', (event) => {
 
 bootEnterPortalBtn?.addEventListener('click', (event) => {
   event.stopPropagation()
-  playSfx(clickSfx, 0.3)
+  playSfx(clickSfx, 0.12)
   // Retry path: user taps the CTA after a walk-load failure. Reset the
   // failed flag and re-kick the load instead of trying to play.
   if (bootWalkLoadFailed && !bootMediaReady.walk) {
@@ -2303,7 +2304,7 @@ closeBtn.addEventListener('click', () => {
 })
 
 spinBtn.addEventListener('click', () => {
-  playSfx(clickSfx, 0.3)
+  playSfx(clickSfx, 0.12)
   startSpin()
 })
 
@@ -2313,8 +2314,6 @@ claimBtn.addEventListener('click', async () => {
 
   // Allow finalize from both WINNER_SELECTED and WINNER_PENDING_CLAIM
   if (currentState !== STATES.WINNER_SELECTED && currentState !== STATES.WINNER_PENDING_CLAIM) return
-
-  playSfx(clickSfx, 0.3)
 
   // --- Preview path: redirect to the $50 combo product page ---
   // Preview no longer purchases the exact revealed hat variant. The combo

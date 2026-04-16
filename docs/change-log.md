@@ -5,6 +5,42 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-15 -- Size-select popup compaction + click SFX refinement
+
+**Type:** UI polish + SFX refinement. `src/main.js`, `src/style.css`,
+`docs/source-of-truth.md`, `docs/runtime-test-checklist.md`,
+`docs/change-log.md`. No behavioral change, no preview flow change,
+no `_preview_hat_id` change, no shirt size selection change, no
+redirect change, no purchased change, no audio unlock logic change,
+no state machine change.
+
+**Popup 2 compaction.** Tightened `.size-select-card` to
+`width: min(340px, 92vw)` (from 360px), padding `16px 20px 18px`
+(from 22/26/24), gap 10px (from 14px). Combo image max-width
+dropped to 120px desktop / 96px mobile (from 180/140); drop-shadow
+softened. `.size-select-options` switched from `flex-wrap` to
+`display: grid; grid-template-columns: repeat(5, minmax(0, 1fr))`
+so all five shirt sizes sit on a single row on desktop, and a
+responsive `repeat(3, ...)` at the <=820px breakpoint keeps two
+rows maximum on mobile. `.size-select-option` padding 7px/6px
+(from 10/14), letter-spacing 0.08em (from 0.12em), font-size
+0.85rem (from 0.95rem), min-width 0 (from 52px). `.size-select-cta`
+margin-top 2px (from 4px), padding 8px 18px (from 10/22). Net
+result: popup fits comfortably inside short mobile iframes without
+vertical scroll, and the size row renders as a single clean grid.
+
+**Click SFX refinement.** Volume reduced from 0.30 to 0.12 across
+all six remaining call sites (`#bootStartBtn`, `#bootEnterPortalBtn`,
+`#savedHatContinueBtn`, `.size-select-option`, `#sizeSelectCtaBtn`,
+`#spinBtn`). Removed the click SFX call from `#claimBtn` since
+`claimSfx` already plays on that button and the two were stacking.
+Added `clickSfx.preload = 'auto'` so the asset is decoded before
+first click, eliminating the perceived lag on the first button
+tap of a session. Press X prompt, canvas click, and keyboard X
+remain deliberately silent.
+
+---
+
 ## 2026-04-15 -- Combo product image in size-select popup
 
 **Type:** UI polish. `src/main.js`, `src/style.css`,
