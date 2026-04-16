@@ -75,6 +75,10 @@ Each item should be tested manually unless automated tests exist.
 - [ ] Ambient background loop starts when idle video begins and plays continuously through all phases
 - [ ] Ambient is clearly softer than spin audio and SFX
 - [ ] Ambient volume drops when the crate scene takes over from the portal videos
+- [ ] Click SFX plays on explicit UI button taps: Click To Enter, Enter Portal, Continue (saved-hat and preview confirm), size option buttons (S/M/L/XL/2XL), GO TO CHECKOUT, Spin / Spin Again, Save Result / SELECT HAT
+- [ ] Click SFX does NOT play on Press X prompt, canvas click, or keyboard X press
+- [ ] Click SFX sits subtly under the larger open/close/claim SFX and does not overlap or muddy them
+- [ ] Click SFX respects the existing audio unlock flow (no playback before first user gesture; unlocks alongside other SFX)
 
 ---
 

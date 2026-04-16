@@ -5,6 +5,36 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-15 -- UI button click SFX
+
+**Type:** Small UX polish. `src/main.js`, `public/sfx/click.mp3`
+(added), `docs/source-of-truth.md`, `docs/runtime-test-checklist.md`,
+`docs/change-log.md`. No behavioral change, no state machine change,
+no audio unlock logic change, no preview/purchased flow change, no
+camera/scene change, no theme change.
+
+Added `clickSfx = new Audio('/sfx/click.mp3')` alongside existing
+SFX, registered in `allAudioElements` so it unlocks with the same
+gesture-unlock path as the other SFX. Subtle volume `0.3` (below
+open/close 0.25 only when comparing perceptual weight; click SFX is
+short enough to not compete). Wired `playSfx(clickSfx, 0.3)` into
+explicit UI button handlers only:
+
+- `#bootStartBtn` (Click To Enter / Tap To Retry)
+- `#bootEnterPortalBtn` (Enter Portal / Tap To Retry)
+- `#savedHatContinueBtn` (Continue -- purchased reload + preview
+  continue paths)
+- `.size-select-option` buttons (S/M/L/XL/2XL radios)
+- `#sizeSelectCtaBtn` (GO TO CHECKOUT)
+- `#spinBtn` (Spin / Spin Again)
+- `#claimBtn` (Save Result / SELECT HAT)
+
+Deliberately excluded per direction: Press X prompt, canvas click,
+keyboard X. Audio unlock path and all other SFX timing are
+byte-identical.
+
+---
+
 ## 2026-04-15 -- GPU texture pre-upload for hat reel
 
 **Type:** Performance-only. `src/main.js`, `docs/source-of-truth.md`,
