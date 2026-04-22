@@ -35,7 +35,16 @@ const hats = [
   { id: 'CF-13',             name: 'Acid Wash',         image: '/hats/CANDYFACTSHAT-13-1.png',       shopifyVariantId: '51863308665112', weight: 1, mainline: false },
   { id: 'CF-14',             name: 'Junk Yard',         image: '/hats/CANDYFACTSHAT-14-1.png',       shopifyVariantId: '51863308697880', weight: 1, mainline: false },
   { id: 'CF-15',             name: 'Nuked Zombie',      image: '/hats/CANDYFACTSHAT-15-1.png',       shopifyVariantId: '51863308730648', weight: 1, mainline: false },
-  { id: 'CF-16',             name: 'Head Shot',         image: '/hats/CANDYFACTSHAT-16-1.png',       shopifyVariantId: '51863308763416', weight: 1, mainline: false }
+  { id: 'CF-16',             name: 'Head Shot',         image: '/hats/CANDYFACTSHAT-16-1.png',       shopifyVariantId: '51863308763416', weight: 1, mainline: false },
+  { id: 'CF-BALENCIAGA-KID', name: 'Balenciaga Kid',    image: '/hats/BALENCIAGA KID.png',           shopifyVariantId: '51984712270104', weight: 1, mainline: false },
+  { id: 'CF-GREEN-MONSTER',  name: 'Green Monster',     image: '/hats/GREEN MONSTER.png',            shopifyVariantId: '51984717119768', weight: 1, mainline: false },
+  { id: 'CF-1776',           name: '1776',              image: '/hats/1776.png',                     shopifyVariantId: '51984717644056', weight: 1, mainline: false },
+  { id: 'CF-GLACIER-FREEZE', name: 'Glacier Freeze',    image: '/hats/GLACIER FREEZE.png',           shopifyVariantId: '51984720167192', weight: 1, mainline: false },
+  { id: 'CF-CANDY-KID',      name: 'Candy Kid',         image: '/hats/CANDY KID.png',                shopifyVariantId: '51984720757016', weight: 1, mainline: false },
+  { id: 'CF-OVERGROWN',      name: 'Overgrown',         image: '/hats/OVERGROWN.png',                shopifyVariantId: '51984720855320', weight: 1, mainline: false },
+  { id: 'CF-JAMBA-JUICE',    name: 'Jamba Juice',       image: '/hats/JAMBA JUICE.png',              shopifyVariantId: '51984721051928', weight: 1, mainline: false },
+  { id: 'CF-OCEAN-SPRAY',    name: 'Ocean Spray',       image: '/hats/OCEAN SPRAY.png',              shopifyVariantId: '51984721903896', weight: 1, mainline: false },
+  { id: 'CF-PATRIOT',        name: 'Patriot',           image: '/hats/PATRIOT.png',                  shopifyVariantId: '51984722198808', weight: 1, mainline: false }
 ]
 
 /**

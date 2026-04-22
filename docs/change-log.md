@@ -5,6 +5,41 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-22 -- Data-only expansion: 9 new hats added to the mystery pool (15 -> 24)
+
+**Type:** Data-only change on `src/hats.js`, `api/_lib/allowed-hats.js`, `docs/source-of-truth.md`, `docs/change-log.md`. No JS logic change, no CSS change, no API handler change, no timing-constant change, no state-machine change, no audio change, no camera change, no scene change, no theme change, no weight or mainline change on any existing hat.
+
+**Why.** Preservation-first expansion of the mystery pool from 15 to 24 hats. The 9 new hats are one-of-one variants on the hidden "Candy Facts Mystery Hat" product and extend the inventory-aware winnable pool. The add is done without tuning any spin timing or cadence constants so the accepted reel feel can be judged visually at 24 hats before any follow-up tuning is considered.
+
+**1. `src/hats.js`.** Appended 9 new entries to the `hats` array, all `weight: 1` and `mainline: false`, same object shape as existing entries:
+
+- `CF-BALENCIAGA-KID` -> Balenciaga Kid, `/hats/BALENCIAGA KID.png`, variant `51984712270104`
+- `CF-GREEN-MONSTER` -> Green Monster, `/hats/GREEN MONSTER.png`, variant `51984717119768`
+- `CF-1776` -> 1776, `/hats/1776.png`, variant `51984717644056`
+- `CF-GLACIER-FREEZE` -> Glacier Freeze, `/hats/GLACIER FREEZE.png`, variant `51984720167192`
+- `CF-CANDY-KID` -> Candy Kid, `/hats/CANDY KID.png`, variant `51984720757016`
+- `CF-OVERGROWN` -> Overgrown, `/hats/OVERGROWN.png`, variant `51984720855320`
+- `CF-JAMBA-JUICE` -> Jamba Juice, `/hats/JAMBA JUICE.png`, variant `51984721051928`
+- `CF-OCEAN-SPRAY` -> Ocean Spray, `/hats/OCEAN SPRAY.png`, variant `51984721903896`
+- `CF-PATRIOT` -> Patriot, `/hats/PATRIOT.png`, variant `51984722198808`
+
+**2. `api/_lib/allowed-hats.js`.** Appended the 9 new IDs to `ALLOWED_HAT_IDS` (used by `/api/finalize` for server-side hat-id validation). Appended the 9 new `variantId -> hatId` pairs to `VARIANT_TO_HAT_ID` (used by `/api/available-hats` to translate live Shopify variant inventory back to internal hat IDs).
+
+**3. `docs/source-of-truth.md`.** Updated the Hat Pool section from 15 to 24 with one new line listing the 9 new display names and internal IDs. Inventory-aware filtering language, preview-checkout language, entitlement model, and persistence language were not changed.
+
+**4. Inventory-aware behavior preserved structurally.** The reel advance at `src/main.js:2233` still cycles `currentHatIndex = (currentHatIndex + 1) % hats.length` over the full pool, so zero-inventory hats continue to appear visually during the spin animation. Winner selection at `src/main.js:2185` still calls `selectWeightedHat(availableHatIds)`, which assigns weight 0 to any hat not returned by `/api/available-hats`, so zero-inventory hats still cannot be landed on as winners. The 9 new hats participate in both behaviors automatically through the existing code paths; no logic change was required in `src/main.js`, `src/hats.js` helpers, or any API handler.
+
+**5. Not touched.** `src/main.js`, `src/style.css`, `index.html`, `api/available-hats.js`, `api/consume-spin.js`, `api/eligibility.js`, `api/finalize.js`, `api/pending-result.js`, `api/claim-spin.js`, `api/_lib/shopify.js`, `CLAUDE.md`, `README.md`, Shopify theme repo, `COMBO_VARIANT_BY_SIZE`, any spin timing or cadence constant (`MIN_FULL_ROTATIONS`, `EXTRA_FULL_ROTATIONS_MAX`, `SPIN_BASE_DURATION_MS`, `AUDIO_SILENCE_TAIL_MS`, `SPIN_END_PADDING_MS`, `POST_OPEN_PAUSE_BASE_MS`, `POST_OPEN_PAUSE_JITTER_MS`), any weight on any hat, or the `mainline` flag on any hat.
+
+**Manual QA still needed before live:**
+- Place the 9 PNG files under `public/hats/` at the exact paths above. If a PNG is missing, the existing `img.onerror` handler at `src/main.js:1472-1476` keeps that hat plane culled via `alphaTest: 0.35`, so the reel does not break; the index simply renders invisible for one frame at a time.
+- Confirm in Shopify admin that the 9 variants exist on the hidden "Candy Facts Mystery Hat" product with inventory qty 1 each and variant IDs matching the list above.
+- Hit `/api/available-hats` against the deployed Vercel endpoint and confirm the 9 new IDs appear in the `available` array when all 9 variants have qty 1.
+- Walk through runtime-test-checklist sections 2 (Spin Flow), 4 (Preview Path), 5 (Purchased Path), 13 (Inventory-Aware Hat Pool), and 16 (Deferred hat texture preload) at 24 hats.
+- Judge reel readability at 24 hats. No timing change is recommended as part of this pass. If the reel reads as noticeably too fast after live inspection, that is a separate, single-constant follow-up (likely candidate: reduce `MIN_FULL_ROTATIONS` from 2 to 1).
+
+---
+
 ## 2026-04-15 -- Iframe UI polish corrective pass (revert Press X to blue circle, remove purple stripe, retone amber/gold to official #ff33ff)
 
 **Type:** CSS-only revert + retone on `src/style.css`,
