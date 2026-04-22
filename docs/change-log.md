@@ -5,6 +5,18 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-22 -- Cleanup: remove 5 legacy placeholder hat PNGs
+
+**Type:** File deletion and one doc line removal. No JS, CSS, API, timing, state-machine, audio, camera, scene, inventory, or theme change. No change to `src/hats.js` or `api/_lib/allowed-hats.js`.
+
+**What.** Deleted `public/hats/hat1.png`, `public/hats/hat2.png`, `public/hats/hat3.png`, `public/hats/hat4.png`, `public/hats/hat5.png`. Removed the "Old placeholder files (`hat1.png` through `hat5.png`) are still in `public/hats/` but no longer referenced by code" bullet from `docs/source-of-truth.md` since it is no longer true.
+
+**Why.** These were unused placeholder assets from the earlier 5-hat prototype pool. Grep across `src/`, `api/`, `public/`, `index.html`, and `package.json` returned zero references to `hat[1-5].png`, confirming they are unreferenced. Removing them reclaims about 5.5 MB from the repo and keeps `public/hats/` as a clean list of the 24 live hats.
+
+**Not touched.** `src/main.js`, `src/style.css`, `src/hats.js`, `api/*`, `api/_lib/shopify.js`, `api/_lib/allowed-hats.js`, `CLAUDE.md`, `README.md`, Shopify theme repo, any spin/timing/cadence constant, and any other doc.
+
+---
+
 ## 2026-04-22 -- Data-only expansion: 9 new hats added to the mystery pool (15 -> 24)
 
 **Type:** Data-only change on `src/hats.js`, `api/_lib/allowed-hats.js`, `docs/source-of-truth.md`, `docs/change-log.md`. No JS logic change, no CSS change, no API handler change, no timing-constant change, no state-machine change, no audio change, no camera change, no scene change, no theme change, no weight or mainline change on any existing hat.
