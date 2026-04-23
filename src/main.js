@@ -2192,10 +2192,23 @@ async function startSpin() {
   spinWinnerHatId = spinWinnerHat.id
   spinWinnerHatName = spinWinnerHat.name
 
+  // Build the visible reel pool from currently available hats only.
+  // Master `hats` array is never mutated; we traverse via indices into it.
+  const availableIndices = hats
+    .map((h, i) => (availableHatIds.has(h.id) ? i : -1))
+    .filter(i => i !== -1)
+  if (availableIndices.indexOf(currentHatIndex) < 0) {
+    currentHatIndex = availableIndices[0]
+    showHat(currentHatIndex)
+  }
+  const visiblePoolSize = availableIndices.length
+  let currentPos = availableIndices.indexOf(currentHatIndex)
+  const winnerPos = availableIndices.indexOf(spinWinnerIndex)
+
   // Calculate steps to land exactly on winner from current position
-  const offset = (spinWinnerIndex - currentHatIndex + hats.length) % hats.length
+  const offset = (winnerPos - currentPos + visiblePoolSize) % visiblePoolSize
   const fullRotations = MIN_FULL_ROTATIONS + Math.floor(Math.random() * (EXTRA_FULL_ROTATIONS_MAX + 1))
-  spinTotalSteps = fullRotations * hats.length + offset
+  spinTotalSteps = fullRotations * visiblePoolSize + offset
   spinStep = 0
   spinStartTime = performance.now()
 
@@ -2227,10 +2240,12 @@ async function startSpin() {
     // Use (totalSteps + 1) trick so final step can be reached before easedProgress hits exactly 1.0
     const targetStep = Math.min(spinTotalSteps, Math.floor(easedProgress * (spinTotalSteps + 1)))
 
-    // Advance through steps - each step increments currentHatIndex
+    // Advance through steps - each step walks one position through the
+    // available-only pool, mapping back to the authoritative hat index.
     while (spinStep < targetStep && spinStep < spinTotalSteps) {
       spinStep++
-      currentHatIndex = (currentHatIndex + 1) % hats.length
+      currentPos = (currentPos + 1) % visiblePoolSize
+      currentHatIndex = availableIndices[currentPos]
       showHat(currentHatIndex)
     }
 

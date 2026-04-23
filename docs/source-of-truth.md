@@ -76,7 +76,7 @@ CLAUDE.md and README.md still reflect the older spin-era concept and have not be
 - All hat PNGs live in `public/hats/`
 - Exact rarity weighting: **provisional, not locked** (all weights currently 1)
 - Whether 1/1 hats permanently leave the pool once won: **provisional, not locked**
-- **Inventory-aware filtering:** `GET /api/available-hats` queries the hidden mystery-hat product's variant inventory via Shopify GraphQL Admin API. Only hats with variant inventory > 0 can be landed on. Both preview and purchased paths use the same filter. Spin is blocked if no hats are available or if the availability check fails.
+- **Inventory-aware filtering:** `GET /api/available-hats` queries the hidden mystery-hat product's variant inventory via Shopify GraphQL Admin API. Only hats with variant inventory > 0 can be landed on AND only those hats appear visually during the spin reel. Sold-out hats are invisible during the reel and non-landable as winners. Both preview and purchased paths use the same filter. Spin is blocked if no hats are available or if the availability check fails.
 
 ---
 

@@ -5,6 +5,39 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-22 -- Inventory-aware reel visibility: sold-out hats no longer appear during the spin
+
+**Type:** Product-rule change implemented with a surgical two-spot edit inside `src/main.js` (`startSpin` setup and `animateSpin` advance loop), plus one sentence update in `docs/source-of-truth.md`. No change to `src/hats.js`, `api/_lib/allowed-hats.js`, `api/available-hats.js`, `api/_lib/shopify.js`, any other API handler, CSS, HTML, state machine, audio, camera, or timing constants. No change to Shopify admin data, variant IDs, hat IDs, or inventory mappings. No change to the preview/purchased/finalize/pending-result/shirt-size/saved-hat code paths.
+
+**Why.** Previously the reel cycled all 24 hats regardless of inventory while winner selection was filtered, so sold-out hats flashed visually even though they could never land. The product rule is now consistent: sold-out hats are both invisible during the reel AND non-landable as winners.
+
+**How.** The master `hats` array is never mutated. At spin-start (after the availability fetch and after `selectWeightedHat(availableHatIds)` has chosen the winner), the code now builds a short-lived `availableIndices` array (indices into `hats` where the hat is in `availableHatIds`). The reel walks positions through this filtered list rather than through the full array. `currentHatIndex` remains the authoritative index into `hats` for texture binding and all downstream logic; only the path taken through the pool changes. If `currentHatIndex` is not in `availableIndices` at spin-start (e.g., rest-state was showing a hat that has since sold out), it snaps to `availableIndices[0]` and re-renders once before the reel math runs. Exact-land-on-winner guarantee is preserved: `offset = (winnerPos - currentPos + N) % N` and `spinTotalSteps = fullRotations * N + offset` with `N = availableIndices.length`.
+
+**Edge cases.**
+- All unavailable (`availableHatIds.size === 0`): handled by the existing guard at `src/main.js:2134` that alerts and returns before winner selection or reel math runs. Unchanged.
+- Availability fetch fails (`availabilityError || availableHatIds === null`): handled by the existing guard at `src/main.js:2130-2132`. Unchanged fail-closed behavior.
+- Single available hat: reel cycles that single hat for the full duration (a reveal stutter rather than a reel). Not guarded here; occurs only in extreme sold-out states.
+- `currentHatIndex` not in `availableIndices` at spin-start: snapped to the first available index before reel math.
+
+**Applied consistently to preview and purchased paths.** Both paths share `startSpin` and `animateSpin`, so the filter applies to both with no path-specific branching.
+
+**Cadence note.** With `visiblePoolSize` typically smaller than `hats.length`, per-step dwell is slightly longer than before (e.g., at 21 available, about 123 ms per step in a 7s spin vs 108 ms before). Direction of the change is readability improvement, not regression. No timing constant was tuned in this pass.
+
+**Not touched.** `src/hats.js`, `src/style.css`, `index.html`, every API handler and `api/_lib/*` file, `CLAUDE.md`, `README.md`, Shopify theme repo, `COMBO_VARIANT_BY_SIZE`, `VARIANT_TO_HAT_ID`, `ALLOWED_HAT_IDS`, texture preload (`kickHatTexturePreload` still preloads all 24 PNGs so a restocked hat appears without a load spike), pending-result resume branch at `src/main.js:2090-2125` (uses direct `showHat(pendingIndex)`, not the reel), the "all unavailable" guard, or any spin timing/cadence constant (`MIN_FULL_ROTATIONS`, `EXTRA_FULL_ROTATIONS_MAX`, `SPIN_BASE_DURATION_MS`, `AUDIO_SILENCE_TAIL_MS`, `SPIN_END_PADDING_MS`, `POST_OPEN_PAUSE_*`).
+
+**Manual QA still needed.**
+- With `CF-KINDER`, `CF-SKITTLES-RED`, `CF-14` at inventory 0 and the other 21 at 1: reel visually cycles only 21 hats; none of the three sold-out hats flash at any point during any spin.
+- Winner always lands on one of the 21 available hats; final displayed hat matches the winning hat id sent to `/api/finalize` on the purchased path and to the `_preview_hat_id` line-item property on the preview path.
+- `/api/available-hats` returning only `["CF-PATRIOT"]` (extreme test): single-hat reel renders correctly and lands on CF-PATRIOT.
+- `/api/available-hats` returning `[]` or failing: existing alerts fire before any reel math; no spin consumption, no state corruption.
+- Purchased path end-to-end: consume, winner-landed pending-result write, Save Result writes `crate_hat_won:<HAT-ID>`, post-claim popup + Continue-gated reload unchanged.
+- Preview path end-to-end: SELECT HAT opens the size popup and redirects to the combo cart permalink with the correct `_preview_hat_id`.
+- Pending-result resume (hard reload mid-spin): lands on the exact pending hat via direct `showHat`, no reel, no consumption.
+- Spin Again: re-fetches availability, rebuilds `availableIndices`, reel cycles only the currently-available set for the second spin.
+- Shirt-size popup, saved-hat popup, audio unlock, camera intro, state transitions, HUD chrome: visibly identical.
+
+---
+
 ## 2026-04-22 -- Cleanup: remove 5 legacy placeholder hat PNGs
 
 **Type:** File deletion and one doc line removal. No JS, CSS, API, timing, state-machine, audio, camera, scene, inventory, or theme change. No change to `src/hats.js` or `api/_lib/allowed-hats.js`.
