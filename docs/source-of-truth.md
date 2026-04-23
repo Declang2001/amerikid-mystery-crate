@@ -74,6 +74,7 @@ CLAUDE.md and README.md still reflect the older spin-era concept and have not be
 - 9 named hats (2026-04-22 expansion): Balenciaga Kid, Green Monster, 1776, Glacier Freeze, Candy Kid, Overgrown, Jamba Juice, Ocean Spray, Patriot (IDs CF-BALENCIAGA-KID, CF-GREEN-MONSTER, CF-1776, CF-GLACIER-FREEZE, CF-CANDY-KID, CF-OVERGROWN, CF-JAMBA-JUICE, CF-OCEAN-SPRAY, CF-PATRIOT)
 - Each hat in `src/hats.js` includes `shopifyVariantId` for exact preview checkout routing
 - All hat PNGs live in `public/hats/`
+- Runtime asset resolution: **1024 x 1024 sRGB PNG** per hat. Authored framing (~87% visible height, ~5% top pad, ~7% bottom pad, horizontally centered) is preserved across the downscale because it is uniform.
 - Exact rarity weighting: **provisional, not locked** (all weights currently 1)
 - Whether 1/1 hats permanently leave the pool once won: **provisional, not locked**
 - **Inventory-aware filtering:** `GET /api/available-hats` queries the hidden mystery-hat product's variant inventory via Shopify GraphQL Admin API. Only hats with variant inventory > 0 can be landed on AND only those hats appear visually during the spin reel. Sold-out hats are invisible during the reel and non-landable as winners. Both preview and purchased paths use the same filter. Spin is blocked if no hats are available or if the availability check fails.

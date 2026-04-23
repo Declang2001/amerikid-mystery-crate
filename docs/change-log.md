@@ -5,6 +5,44 @@ This log tracks direction changes, not just code commits.
 
 ---
 
+## 2026-04-23 -- Performance pass: downscale runtime hat PNGs from 2400x2400 to 1024x1024
+
+**Type:** Asset-only change on `public/hats/*.png` (24 files) plus one sentence update in `docs/source-of-truth.md` and this change-log entry. No code change, no CSS change, no HTML change, no API handler change, no `src/hats.js` change, no `api/_lib/allowed-hats.js` change, no timing change, no state-machine change, no audio change, no camera change, no scene change, no theme change. No filename change. No framing/crop/composition change.
+
+**Why.** After the 15 -> 24 hat expansion and the 2026-04-22 canvas normalization to 2400x2400, the total hat-pool disk budget grew from the original ~63 MB design assumption to 176.7 MB, and the GPU VRAM projection for 24 x 2400x2400 RGBA textures reached roughly 552-738 MB with default mipmaps. On mobile Safari inside the Shopify iframe, that VRAM demand far exceeds typical per-context budgets (often 256-512 MB), which plausibly triggers texture eviction, per-spin re-upload stalls, and visible lag/glitchiness. The 2400 source resolution was chosen for normalization fidelity, but the largest render target anywhere in the app is roughly 320 px tall (the 3D reel plane at camera distance; the 2D result panel is only ~60 px). Everything above ~1024 px was VRAM and bandwidth cost with no on-screen benefit.
+
+**What changed.** All 24 PNGs in `public/hats/` were re-saved at 1024x1024 using a uniform LANCZOS downscale. Uniform scale preserves the authored framing exactly because the ratio of artwork bounding box to canvas is scale-invariant. Measured post-save framing drift on each of the 24 files, the maximum absolute change in visible-height %, top-pad %, and bottom-pad % across all hats was **0.121 percentage points**, which is integer-pixel rounding noise at 1024 resolution and is imperceptible at actual render sizes.
+
+**Before / after numbers.**
+- Pool disk size: **176.7 MB -> 36.0 MB** (saving of 140.7 MB, -79.6%).
+- Per-hat disk size: mean ~7.4 MB -> mean ~1.5 MB.
+- VRAM projection at 1024 x 1024 RGBA with mipmaps: ~134 MB for the full 24-hat pool (vs ~738 MB before). Fits comfortably inside typical mobile WebGL budgets.
+- On-screen quality: unchanged at the render targets used (2D panel ~60 px, 3D reel plane ~240-320 px). The 1024 source still gives >3x oversampling at the largest target.
+
+**Not touched.**
+- `src/main.js` (all paths including `kickHatTexturePreload`, `hatTextures` placeholder allocation, `renderer.initTexture`, `createHatDisplay3D`, `showHat`, `animateSpin`, `startSpin`, state machine, audio unlock, camera, scene).
+- `src/hats.js` (hat IDs, names, image paths, variant IDs, weights, mainline flags all unchanged).
+- `src/style.css`, `index.html`.
+- `api/_lib/allowed-hats.js`, `api/available-hats.js`, `api/_lib/shopify.js`, `api/consume-spin.js`, `api/eligibility.js`, `api/finalize.js`, `api/pending-result.js`, `api/claim-spin.js`.
+- CLAUDE.md, README.md, Shopify theme repo.
+- `public/media/portal/idle.mp4`, `public/media/portal/walk_in_animation.mp4`, `public/room.png`, `public/audio/*`, `public/sfx/*`.
+- Timing constants (`MIN_FULL_ROTATIONS`, `EXTRA_FULL_ROTATIONS_MAX`, `SPIN_BASE_DURATION_MS`, `AUDIO_SILENCE_TAIL_MS`, `SPIN_END_PADDING_MS`, `POST_OPEN_PAUSE_*`).
+- Filenames (all 24 kept identical, including spaces and parentheses).
+- Framing, cropping, composition, colors, or transparency of any hat artwork.
+- Inventory-aware filter, reel visibility filter, pending-result bridge, preview/purchased flows, shirt-size popup, saved-hat popup.
+
+**Manual QA still needed.**
+- Mobile Safari inside the Shopify iframe (cold cache): boot, portal videos, crate scene intro, first spin, Spin Again, Save Result, post-claim popup + Continue-gated reload. Confirm no visible lag or glitching vs the 2400 state, and no console `WebGL context lost` events.
+- Desktop Chrome + Safari iframe: reel visibly identical, result panel visibly identical, no resolution drop perceptible.
+- Preview path end-to-end: SELECT HAT popup chain, shirt-size popup, redirect to combo cart permalink carries correct `_preview_hat_id`.
+- Purchased path end-to-end: consume, winner-landed pending-result, Save Result, `crate_hat_won:<HAT-ID>`, post-claim reload.
+- Pending-result resume (hard-reload mid-spin): resumes on the exact pending hat via direct `showHat`.
+- Inventory visibility (21 available, 3 sold out): reel still cycles only available hats; sold-out hats still never appear visually.
+- Devtools Performance: no 100 ms+ texImage2D spikes during boot or spin.
+- Network panel cold cache: hat PNG requests complete well inside the accepted deferred-preload window on Slow 3G.
+
+---
+
 ## 2026-04-22 -- Inventory-aware reel visibility: sold-out hats no longer appear during the spin
 
 **Type:** Product-rule change implemented with a surgical two-spot edit inside `src/main.js` (`startSpin` setup and `animateSpin` advance loop), plus one sentence update in `docs/source-of-truth.md`. No change to `src/hats.js`, `api/_lib/allowed-hats.js`, `api/available-hats.js`, `api/_lib/shopify.js`, any other API handler, CSS, HTML, state machine, audio, camera, or timing constants. No change to Shopify admin data, variant IDs, hat IDs, or inventory mappings. No change to the preview/purchased/finalize/pending-result/shirt-size/saved-hat code paths.
